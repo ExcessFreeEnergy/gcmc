@@ -202,6 +202,46 @@ class TrainingPotential(BaseTrainingPotential):
         energies = sine_terms + linear_terms
         return np.sum(energies)
 
+class TrainingPotentialTanhSin(BaseTrainingPotential):
+    def __init__(self, A1, A2, A3, A4, phi1, phi2, phi3, phi4, L, B1, B2, B3, B4, linear_potentials):
+        super().__init__(A1, A2, A3, A4, phi1, phi2, phi3, phi4, L)
+        self.linear_potentials = linear_potentials
+        self.B1 = B1
+        self.B2 = B2
+        self.B3 = B3
+        self.B4 = B4
+
+    def __call__(self, position):
+        ratio = 2 * np.pi * position[0] / self.L
+        sine_terms = sum(
+            A * np.tanh(B*np.sin(ratio * i + phi))
+            for i, (A, B, phi) in enumerate(
+                [(self.A1, self.B1, self.phi1), (self.A2, self.B2, self.phi2), (self.A3, self.B3, self.phi3), (self.A4, self.B4, self.phi4)], start=1
+            )
+        )
+        linear_terms = sum(
+            self.calculate_linear_potential(Va, Vb, xa, xb, position)
+            for Va, Vb, xa, xb in self.linear_potentials
+        )
+        return sine_terms + linear_terms
+
+    def calculate_multiple(self, positions):
+        ratio = 2 * np.pi * positions[:, 0] / self.L
+        sine_terms = (
+            self.A1 * np.tanh(self.B1 * np.sin(ratio + self.phi1)) +
+            self.A2 * np.tanh(self.B2 * np.sin(2 * ratio + self.phi2)) +
+            self.A3 * np.tanh(self.B3 * np.sin(3 * ratio + self.phi3)) +
+            self.A4 * np.tanh(self.B4 * np.sin(4 * ratio + self.phi4))
+        )
+
+        linear_terms = np.zeros_like(positions[:, 0])
+        for Va, Vb, xa, xb in self.linear_potentials:
+            Vlin = Va + (Vb - Va) * (positions[:, 0] - xa) / (xb - xa)
+            linear_terms += np.where((xa <= positions[:, 0]) & (positions[:, 0] <= xb), Vlin, 0.0)
+
+        energies = sine_terms + linear_terms
+        return np.sum(energies)
+
 
 class BaseTrainingPotentialWithCharge(ExtPotential):
     def __init__(self, q, A1, A2, A3, A4, phi1, phi2, phi3, phi4, q_A1, q_A2, q_A3, q_A4, q_phi1, q_phi2, q_phi3, q_phi4, L):
@@ -343,6 +383,360 @@ class TrainingPotentialWithChargeCos(BaseTrainingPotentialWithCharge):
         energies = sine_terms + linear_terms + cosine_terms_q * self.q + linear_terms_q * self.q
         return np.sum(energies)
 
+class TrainingPotentialWithChargeCosWithMorseWalls(BaseTrainingPotentialWithCharge):
+    def __init__(self, q, A1, A2, A3, A4, phi1, phi2, phi3, phi4, q_A1, q_A2, q_A3, q_A4,
+                 q_phi1, q_phi2, q_phi3, q_phi4, linear_potentials, q_linear_potentials,
+                 low, high, D0_lo, r0_lo, a_inv_lo, cutoff_lo,
+                 D0_hi, r0_hi, a_inv_hi, cutoff_hi, L):
+        super().__init__(q, A1, A2, A3, A4, phi1, phi2, phi3, phi4, q_A1, q_A2, q_A3, q_A4, q_phi1, q_phi2, q_phi3, q_phi4, L)
+        self.low = low
+        self.high = high
+        self.D0_lo = D0_lo
+        self.r0_lo = r0_lo
+        self.a_inv_lo = a_inv_lo
+        self.cutoff_lo = cutoff_lo
+        self.D0_hi = D0_hi
+        self.r0_hi = r0_hi
+        self.a_inv_hi = a_inv_hi
+        self.cutoff_hi = cutoff_hi
+        self.linear_potentials = linear_potentials
+        self.q_linear_potentials = q_linear_potentials
+
+        self.shift_lo =  self.D0_lo * ((1.0 - np.exp(-self.a_inv_lo * (self.cutoff_lo - self.r0_lo)))**2 - 1.0)
+        self.shift_hi =  self.D0_hi * ((1.0 - np.exp(-self.a_inv_hi * (self.cutoff_hi - self.r0_hi)))**2 - 1.0)
+
+    def __call__(self, position):
+
+        r_low = position[0] - self.low
+        r_high = self.high - position[0]
+
+        energy_low =  self.D0_lo * ((1.0 - np.exp(-self.a_inv_lo * (r_low - self.r0_lo)))**2 - 1.0) - self.shift_lo
+        energy_high = self.D0_hi * ((1.0 - np.exp(-self.a_inv_hi * (r_high - self.r0_hi)))**2 - 1.0) - self.shift_hi
+
+        energy_low = np.where(r_low >= self.cutoff_lo, 0.0, energy_low)
+        energy_high = np.where(r_high >= self.cutoff_hi, 0.0, energy_high)
+
+        sine_terms = self.calculate_cosines(position)
+        sine_terms_q = self.calculate_q_cosines(position)
+        linear_terms = sum(
+            self.calculate_linear_potential(Va, Vb, xa, xb, position)
+            for Va, Vb, xa, xb in self.linear_potentials
+        )
+        linear_terms_q = sum(
+            self.calculate_q_linear_potential(qVa, qVb, qxa, qxb, position)
+            for qVa, qVb, qxa, qxb in self.q_linear_potentials
+        )
+        return np.where((position[0] > self.high) | (position[0] < self.low), very_large_number, energy_low + energy_high + sine_terms + linear_terms + sine_terms_q * self.q + linear_terms_q * self.q)
+
+    def get_electrostatic(self, position):
+        sine_terms_q = self.calculate_q_cosines(position)
+        linear_terms_q = sum(
+            self.calculate_q_linear_potential(qVa, qVb, qxa, qxb, position)
+            for qVa, qVb, qxa, qxb in self.q_linear_potentials
+        )
+        return  sine_terms_q * self.q + linear_terms_q * self.q
+
+    def get_non_electrostatic(self, position):
+        sine_terms = self.calculate_cosines(position)
+        linear_terms = sum(
+            self.calculate_linear_potential(Va, Vb, xa, xb, position)
+            for Va, Vb, xa, xb in self.linear_potentials
+        )
+        return np.where((position[0] > self.high) | (position[0] < self.low), very_large_number, sine_terms + linear_terms )
+
+    def calculate_multiple(self, positions):
+        ratio = 2 * np.pi * positions[:, 0] / self.L
+        sine_terms = (
+            self.A1 * np.cos(ratio + self.phi1) +
+            self.A2 * np.cos(2 * ratio + self.phi2) +
+            self.A3 * np.cos(3 * ratio + self.phi3) +
+            self.A4 * np.cos(4 * ratio + self.phi4)
+        )
+
+        sine_terms_q = (
+            self.q_A1 * np.cos(ratio + self.q_phi1) +
+            self.q_A2 * np.cos(2 * ratio + self.q_phi2) +
+            self.q_A3 * np.cos(3 * ratio + self.q_phi3) +
+            self.q_A4 * np.cos(4 * ratio + self.q_phi4)
+        )
+
+        linear_terms = np.zeros_like(positions[:, 0])
+        for Va, Vb, xa, xb in self.linear_potentials:
+            Vlin = Va + (Vb - Va) * (positions[:, 0] - xa) / (xb - xa)
+            linear_terms += np.where((xa <= positions[:, 0]) & (positions[:, 0] <= xb), Vlin, 0.0)
+
+        linear_terms_q = np.zeros_like(positions[:, 0])
+        for qVa, qVb, qxa, qxb in self.q_linear_potentials:
+            Vlin_q = qVa + (qVb - qVa) * (positions[:, 0] - qxa) / (qxb - qxa)
+            linear_terms_q += np.where((qxa <= positions[:, 0]) & (positions[:, 0] <= qxb), Vlin_q, 0.0)
+
+        energies = np.zeros(positions.shape[0])
+        outside_low = positions[:, 0] < self.low
+        outside_high = positions[:, 0] > self.high
+        inside = ~outside_low & ~outside_high
+
+        energies[outside_low | outside_high] = very_large_number
+
+        r_low = positions[inside, 0] - self.low
+        r_high = self.high - positions[inside, 0]
+        
+        energy_low =  self.D0_lo * ((1.0 - np.exp(-self.a_inv_lo * (r_low - self.r0_lo)))**2 - 1.0) - self.shift_lo
+        energy_high = self.D0_hi * ((1.0 - np.exp(-self.a_inv_hi * (r_high - self.r0_hi)))**2 - 1.0) - self.shift_hi
+
+        energy_low[r_low >= self.cutoff] = 0.0
+        energy_high[r_high >= self.cutoff] = 0.0
+
+        energies[inside] = sine_terms + linear_terms + sine_terms_q * self.q + linear_terms_q * self.q + energy_low + energy_high
+
+        return np.sum(energies)
+
+class TrainingPotentialWithChargeCosWithLJ93WallsWithExpField(BaseTrainingPotentialWithCharge):
+    def __init__(self, q, A1, A2, A3, A4, phi1, phi2, phi3, phi4, q_A1, q_A2, q_A3, q_A4,
+                 q_phi1, q_phi2, q_phi3, q_phi4, linear_potentials, q_linear_potentials,
+                 low, high, epsilon_lo, sigma_lo, cutoff_lo, epsilon_hi, sigma_hi, cutoff_hi,
+                 phi_0_lo, d_lo, phi_0_hi, d_hi, L):
+        super().__init__(q, A1, A2, A3, A4, phi1, phi2, phi3, phi4, q_A1, q_A2, q_A3, q_A4, q_phi1, q_phi2, q_phi3, q_phi4, L)
+        self.low = low
+        self.high = high
+        self.epsilon_lo = epsilon_lo
+        self.sigma_lo = sigma_lo
+        self.cutoff_lo = cutoff_lo
+        self.epsilon_hi = epsilon_hi
+        self.sigma_hi = sigma_hi
+        self.cutoff_hi = cutoff_hi
+        self.linear_potentials = linear_potentials
+        self.q_linear_potentials = q_linear_potentials
+        self.phi_0_lo = phi_0_lo
+        self.d_lo = d_lo
+        self.phi_0_hi = phi_0_hi
+        self.d_hi = d_hi
+        
+        preratio3_lo = (self.sigma_lo / self.cutoff_lo) ** 3
+        preratio9_lo = preratio3_lo ** 3
+        preratio3_hi = (self.sigma_hi / self.cutoff_hi) ** 3
+        preratio9_hi = preratio3_hi ** 3           
+    
+        self.shift_lo = self.epsilon_lo * (preratio9_lo * 2/15 - preratio3_lo)        
+        self.shift_hi = self.epsilon_hi * (preratio9_hi * 2/15 - preratio3_hi) 
+    
+    def __call__(self, position):
+        
+        r_low = position[0] - self.low
+        r_high = self.high - position[0]
+        
+        energy_low =  self.epsilon_lo * ((2/15)*(self.sigma_lo / r_low)**9 - (self.sigma_lo / r_low)**3) - self.shift_lo
+        energy_high = self.epsilon_hi * ((2/15)*(self.sigma_hi / r_high)**9 - (self.sigma_hi / r_high)**3) - self.shift_hi
+        
+        energy_low = np.where(r_low >= self.cutoff_lo, 0.0, energy_low)
+        energy_high = np.where(r_high >= self.cutoff_hi, 0.0, energy_high)
+
+        sine_terms = self.calculate_cosines(position)
+        sine_terms_q = self.calculate_q_cosines(position)
+        linear_terms = sum(
+            self.calculate_linear_potential(Va, Vb, xa, xb, position)
+            for Va, Vb, xa, xb in self.linear_potentials
+        )
+        linear_terms_q = sum(
+            self.calculate_q_linear_potential(qVa, qVb, qxa, qxb, position)
+            for qVa, qVb, qxa, qxb in self.q_linear_potentials
+        )
+
+        exp_term_lo_q = self.phi_0_lo * np.exp(- r_low / self.d_lo)
+        exp_term_hi_q = self.phi_0_hi * np.exp(- r_high / self.d_hi)
+        
+        return np.where((position[0] > self.high) | (position[0] < self.low), very_large_number, energy_low + energy_high + sine_terms + linear_terms + sine_terms_q * self.q + linear_terms_q * self.q + exp_term_lo_q * self.q + exp_term_hi_q * self.q)
+
+    def get_electrostatic(self, position):
+        sine_terms_q = self.calculate_q_cosines(position)
+        linear_terms_q = sum(
+            self.calculate_q_linear_potential(qVa, qVb, qxa, qxb, position)
+            for qVa, qVb, qxa, qxb in self.q_linear_potentials
+        )
+        exp_term_lo_q = self.phi_0_lo * np.exp(- r_low / self.d_lo)
+        exp_term_hi_q = self.phi_0_hi * np.exp(- r_high / self.d_hi)
+        
+        return  sine_terms_q * self.q + linear_terms_q * self.q  + exp_term_lo_q * self.q + exp_term_hi_q * self.q
+
+    def get_non_electrostatic(self, position):
+        sine_terms = self.calculate_cosines(position)
+        linear_terms = sum(
+            self.calculate_linear_potential(Va, Vb, xa, xb, position)
+            for Va, Vb, xa, xb in self.linear_potentials
+        )
+        return np.where((position[0] > self.high) | (position[0] < self.low), very_large_number, sine_terms + linear_terms ) 
+
+    def calculate_multiple(self, positions):
+        ratio = 2 * np.pi * positions[:, 0] / self.L
+        sine_terms = (
+            self.A1 * np.cos(ratio + self.phi1) +
+            self.A2 * np.cos(2 * ratio + self.phi2) +
+            self.A3 * np.cos(3 * ratio + self.phi3) +
+            self.A4 * np.cos(4 * ratio + self.phi4)
+        )
+
+        sine_terms_q = (
+            self.q_A1 * np.cos(ratio + self.q_phi1) +
+            self.q_A2 * np.cos(2 * ratio + self.q_phi2) +
+            self.q_A3 * np.cos(3 * ratio + self.q_phi3) +
+            self.q_A4 * np.cos(4 * ratio + self.q_phi4)
+        )
+        
+        linear_terms = np.zeros_like(positions[:, 0])
+        for Va, Vb, xa, xb in self.linear_potentials:
+            Vlin = Va + (Vb - Va) * (positions[:, 0] - xa) / (xb - xa)
+            linear_terms += np.where((xa <= positions[:, 0]) & (positions[:, 0] <= xb), Vlin, 0.0)
+
+        linear_terms_q = np.zeros_like(positions[:, 0])
+        for qVa, qVb, qxa, qxb in self.q_linear_potentials:
+            Vlin_q = qVa + (qVb - qVa) * (positions[:, 0] - qxa) / (qxb - qxa)
+            linear_terms_q += np.where((qxa <= positions[:, 0]) & (positions[:, 0] <= qxb), Vlin_q, 0.0)
+
+        
+        
+        energies = np.zeros(positions.shape[0])
+        outside_low = positions[:, 0] < self.low
+        outside_high = positions[:, 0] > self.high
+        inside = ~outside_low & ~outside_high
+        
+        energies[outside_low | outside_high] = very_large_number
+
+        r_low = positions[inside, 0] - self.low
+        r_high = self.high - positions[inside, 0]
+        
+        energy_low =  self.epsilon_lo * ((2/15)*(self.sigma_lo / r_low)**9 - (self.sigma_lo / r_low)**3) - self.shift_lo
+        energy_high = self.epsilon_hi * ((2/15)*(self.sigma_hi / r_high)**9 - (self.sigma_hi / r_high)**3) - self.shift_hi
+
+        exp_term_lo_q = self.phi_0_lo * np.exp(- r_low / self.d_lo)
+        exp_term_hi_q = self.phi_0_hi * np.exp(- r_high / self.d_hi)
+        
+        energy_low[r_low >= self.cutoff_lo] = 0.0
+        energy_high[r_high >= self.cutoff_hi] = 0.0
+
+        energies[inside] = (
+            sine_terms[inside]
+            + linear_terms[inside]
+            + sine_terms_q[inside] * self.q
+            + linear_terms_q[inside] * self.q
+            + energy_low
+            + energy_high
+            + exp_term_lo_q * self.q
+            + exp_term_hi_q * self.q
+            )
+
+        return np.sum(energies)
+
+
+class TrainingPotentialWithChargeCosWithLJ93Walls(BaseTrainingPotentialWithCharge):
+    def __init__(self, q, A1, A2, A3, A4, phi1, phi2, phi3, phi4, q_A1, q_A2, q_A3, q_A4,
+                 q_phi1, q_phi2, q_phi3, q_phi4, linear_potentials, q_linear_potentials,
+                 low, high, epsilon_lo, sigma_lo, cutoff_lo, epsilon_hi, sigma_hi, cutoff_hi, L):
+        super().__init__(q, A1, A2, A3, A4, phi1, phi2, phi3, phi4, q_A1, q_A2, q_A3, q_A4, q_phi1, q_phi2, q_phi3, q_phi4, L)
+        self.low = low
+        self.high = high
+        self.epsilon_lo = epsilon_lo
+        self.sigma_lo = sigma_lo
+        self.cutoff_lo = cutoff_lo
+        self.epsilon_hi = epsilon_hi
+        self.sigma_hi = sigma_hi
+        self.cutoff_hi = cutoff_hi
+        self.linear_potentials = linear_potentials
+        self.q_linear_potentials = q_linear_potentials
+        
+        preratio3_lo = (self.sigma_lo / self.cutoff_lo) ** 3
+        preratio9_lo = preratio3_lo ** 3
+        preratio3_hi = (self.sigma_hi / self.cutoff_hi) ** 3
+        preratio9_hi = preratio3_hi ** 3           
+    
+        self.shift_lo = self.epsilon_lo * (preratio9_lo * 2/15 - preratio3_lo)        
+        self.shift_hi = self.epsilon_hi * (preratio9_hi * 2/15 - preratio3_hi) 
+    
+    def __call__(self, position):
+        
+        r_low = position[0] - self.low
+        r_high = self.high - position[0]
+        
+        energy_low =  self.epsilon_lo * ((2/15)*(self.sigma_lo / r_low)**9 - (self.sigma_lo / r_low)**3) - self.shift_lo
+        energy_high = self.epsilon_hi * ((2/15)*(self.sigma_hi / r_high)**9 - (self.sigma_hi / r_high)**3) - self.shift_hi
+        
+        energy_low = np.where(r_low >= self.cutoff_lo, 0.0, energy_low)
+        energy_high = np.where(r_high >= self.cutoff_hi, 0.0, energy_high)
+
+        sine_terms = self.calculate_cosines(position)
+        sine_terms_q = self.calculate_q_cosines(position)
+        linear_terms = sum(
+            self.calculate_linear_potential(Va, Vb, xa, xb, position)
+            for Va, Vb, xa, xb in self.linear_potentials
+        )
+        linear_terms_q = sum(
+            self.calculate_q_linear_potential(qVa, qVb, qxa, qxb, position)
+            for qVa, qVb, qxa, qxb in self.q_linear_potentials
+        )
+        return np.where((position[0] > self.high) | (position[0] < self.low), very_large_number, energy_low + energy_high + sine_terms + linear_terms + sine_terms_q * self.q + linear_terms_q * self.q)
+
+    def get_electrostatic(self, position):
+        sine_terms_q = self.calculate_q_cosines(position)
+        linear_terms_q = sum(
+            self.calculate_q_linear_potential(qVa, qVb, qxa, qxb, position)
+            for qVa, qVb, qxa, qxb in self.q_linear_potentials
+        )
+        return  sine_terms_q * self.q + linear_terms_q * self.q 
+
+    def get_non_electrostatic(self, position):
+        sine_terms = self.calculate_cosines(position)
+        linear_terms = sum(
+            self.calculate_linear_potential(Va, Vb, xa, xb, position)
+            for Va, Vb, xa, xb in self.linear_potentials
+        )
+        return np.where((position[0] > self.high) | (position[0] < self.low), very_large_number, sine_terms + linear_terms ) 
+
+    def calculate_multiple(self, positions):
+        ratio = 2 * np.pi * positions[:, 0] / self.L
+        sine_terms = (
+            self.A1 * np.cos(ratio + self.phi1) +
+            self.A2 * np.cos(2 * ratio + self.phi2) +
+            self.A3 * np.cos(3 * ratio + self.phi3) +
+            self.A4 * np.cos(4 * ratio + self.phi4)
+        )
+
+        sine_terms_q = (
+            self.q_A1 * np.cos(ratio + self.q_phi1) +
+            self.q_A2 * np.cos(2 * ratio + self.q_phi2) +
+            self.q_A3 * np.cos(3 * ratio + self.q_phi3) +
+            self.q_A4 * np.cos(4 * ratio + self.q_phi4)
+        )
+        
+        linear_terms = np.zeros_like(positions[:, 0])
+        for Va, Vb, xa, xb in self.linear_potentials:
+            Vlin = Va + (Vb - Va) * (positions[:, 0] - xa) / (xb - xa)
+            linear_terms += np.where((xa <= positions[:, 0]) & (positions[:, 0] <= xb), Vlin, 0.0)
+
+        linear_terms_q = np.zeros_like(positions[:, 0])
+        for qVa, qVb, qxa, qxb in self.q_linear_potentials:
+            Vlin_q = qVa + (qVb - qVa) * (positions[:, 0] - qxa) / (qxb - qxa)
+            linear_terms_q += np.where((qxa <= positions[:, 0]) & (positions[:, 0] <= qxb), Vlin_q, 0.0)
+        
+        energies = np.zeros(positions.shape[0])
+        outside_low = positions[:, 0] < self.low
+        outside_high = positions[:, 0] > self.high
+        inside = ~outside_low & ~outside_high
+        
+        energies[outside_low | outside_high] = very_large_number
+
+        r_low = positions[inside, 0] - self.low
+        r_high = self.high - positions[inside, 0]
+        
+        energy_low =  self.epsilon_lo * ((2/15)*(self.sigma_lo / r_low)**9 - (self.sigma_lo / r_low)**3) - self.shift_lo
+        energy_high = self.epsilon_hi * ((2/15)*(self.sigma_hi / r_high)**9 - (self.sigma_hi / r_high)**3) - self.shift_hi
+
+        energy_low[r_low >= self.cutoff_lo] = 0.0
+        energy_high[r_high >= self.cutoff_hi] = 0.0
+
+        energies[inside] = sine_terms + linear_terms + sine_terms_q * self.q + linear_terms_q * self.q + energy_low + energy_high
+
+        return np.sum(energies)
+
+
+
 
 class TrainingPotentialWithCharge(BaseTrainingPotentialWithCharge):
     def __init__(self, q, A1, A2, A3, A4, phi1, phi2, phi3, phi4, q_A1, q_A2, q_A3, q_A4, q_phi1, q_phi2, q_phi3, q_phi4, linear_potentials, q_linear_potentials, L):
@@ -410,6 +804,7 @@ class TrainingPotentialWithCharge(BaseTrainingPotentialWithCharge):
 
 
 
+
 class TrainingPotentialWithWalls(BaseTrainingPotential):
     def __init__(self, A1, A2, A3, A4, phi1, phi2, phi3, phi4, L, width, linear_potentials):
         super().__init__(A1, A2, A3, A4, phi1, phi2, phi3, phi4, L)
@@ -443,30 +838,40 @@ class TrainingPotentialWithWalls(BaseTrainingPotential):
 
 
 class TrainingPotentialWithLJ93Walls(BaseTrainingPotential):
-    def __init__(self, A1, A2, A3, A4, phi1, phi2, phi3, phi4, L, low, high, epsilon, sigma, cutoff, linear_potentials):
+    def __init__(self, A1, A2, A3, A4, phi1, phi2, phi3, phi4, L, low, high,
+                 epsilon_lo, sigma_lo, cutoff_lo,
+                 epsilon_hi, sigma_hi, cutoff_hi,
+                 linear_potentials):
+                     
         super().__init__(A1, A2, A3, A4, phi1, phi2, phi3, phi4, L)
         self.low = low
         self.high = high
-        self.epsilon = epsilon
-        self.sigma = sigma
-        self.cutoff = cutoff
+        self.epsilon_lo = epsilon_lo
+        self.sigma_lo = sigma_lo
+        self.cutoff_lo = cutoff_lo
+        self.epsilon_hi = epsilon_hi
+        self.sigma_hi = sigma_hi
+        self.cutoff_hi = cutoff_hi
         self.linear_potentials = linear_potentials
         
-        preratio3 = (self.sigma / self.cutoff) ** 3
-        preratio9 = preratio3 ** 3
-        
-        self.shift = self.epsilon * (preratio9 * 2/15 - preratio3)
+        preratio3_lo = (self.sigma_lo / self.cutoff_lo) ** 3
+        preratio9_lo = preratio3_lo ** 3
+        preratio3_hi = (self.sigma_hi / self.cutoff_hi) ** 3
+        preratio9_hi = preratio3_hi ** 3
+                     
+        self.shift_lo = self.epsilon_lo * (preratio9_lo * 2/15 - preratio3_lo)
+        self.shift_hi = self.epsilon_hi * (preratio9_hi * 2/15 - preratio3_hi)
 
     def __call__(self, position):
         
         r_low = position[0] - self.low
         r_high = self.high - position[0]
         
-        energy_low =  self.epsilon * ((2/15)*(self.sigma / r_low)**9 - (self.sigma / r_low)**3) - self.shift
-        energy_high = self.epsilon * ((2/15)*(self.sigma / r_high)**9 - (self.sigma / r_high)**3) - self.shift
+        energy_low =  self.epsilon_lo * ((2/15)*(self.sigma_lo / r_low)**9 - (self.sigma_lo / r_low)**3) - self.shift_lo
+        energy_high = self.epsilon_hi * ((2/15)*(self.sigma_hi / r_high)**9 - (self.sigma_hi / r_high)**3) - self.shift_hi
         
-        energy_low = np.where(r_low >= self.cutoff, 0.0, energy_low)
-        energy_high = np.where(r_high >= self.cutoff, 0.0, energy_high)
+        energy_low = np.where(r_low >= self.cutoff_lo, 0.0, energy_low)
+        energy_high = np.where(r_high >= self.cutoff_hi, 0.0, energy_high)
 
         
         sine_terms = self.calculate_sines(position)
@@ -503,11 +908,11 @@ class TrainingPotentialWithLJ93Walls(BaseTrainingPotential):
         r_low = positions[inside, 0] - self.low
         r_high = self.high - positions[inside, 0]
         
-        energy_low =  self.epsilon * ((2/15)*(self.sigma / r_low)**9 - (self.sigma / r_low)**3) - self.shift
-        energy_high = self.epsilon * ((2/15)*(self.sigma / r_high)**9 - (self.sigma / r_high)**3) - self.shift
+        energy_low =  self.epsilon_lo * ((2/15)*(self.sigma_lo / r_low)**9 - (self.sigma_lo / r_low)**3) - self.shift_lo
+        energy_high = self.epsilon_hi * ((2/15)*(self.sigma_hi / r_high)**9 - (self.sigma_hi / r_high)**3) - self.shift_hi
 
-        energy_low[r_low >= self.cutoff] = 0.0
-        energy_high[r_high >= self.cutoff] = 0.0
+        energy_low[r_low >= self.cutoff_lo] = 0.0
+        energy_high[r_high >= self.cutoff_hi] = 0.0
 
         energies[inside] = sine_terms + linear_terms + energy_low + energy_high
         
@@ -582,31 +987,39 @@ class TrainingPotentialWithChargeWithWalls(BaseTrainingPotentialWithCharge):
 
 
 class TrainingPotentialWithChargeWithLJ93Walls(BaseTrainingPotentialWithCharge):
-    def __init__(self, q, A1, A2, A3, A4, phi1, phi2, phi3, phi4, q_A1, q_A2, q_A3, q_A4, q_phi1, q_phi2, q_phi3, q_phi4, linear_potentials, q_linear_potentials, low, high, epsilon, sigma, cutoff, L):
+    def __init__(self, q, A1, A2, A3, A4, phi1, phi2, phi3, phi4, q_A1, q_A2, q_A3, q_A4,
+                 q_phi1, q_phi2, q_phi3, q_phi4, linear_potentials, q_linear_potentials,
+                 low, high, epsilon_lo, sigma_lo, cutoff_lo, epsilon_hi, sigma_hi, cutoff_hi, L):
         super().__init__(q, A1, A2, A3, A4, phi1, phi2, phi3, phi4, q_A1, q_A2, q_A3, q_A4, q_phi1, q_phi2, q_phi3, q_phi4, L)
         self.low = low
         self.high = high
-        self.epsilon = epsilon
-        self.sigma = sigma
-        self.cutoff = cutoff
+        self.epsilon_lo = epsilon_lo
+        self.sigma_lo = sigma_lo
+        self.cutoff_lo = cutoff_lo
+        self.epsilon_hi = epsilon_hi
+        self.sigma_hi = sigma_hi
+        self.cutoff_hi = cutoff_hi
         self.linear_potentials = linear_potentials
         self.q_linear_potentials = q_linear_potentials
         
-        preratio3 = (self.sigma / self.cutoff) ** 3
-        preratio9 = preratio3 ** 3
-        
-        self.shift = self.epsilon * (preratio9 * 2/15 - preratio3)        
-        
+        preratio3_lo = (self.sigma_lo / self.cutoff_lo) ** 3
+        preratio9_lo = preratio3_lo ** 3
+        preratio3_hi = (self.sigma_hi / self.cutoff_hi) ** 3
+        preratio9_hi = preratio3_hi ** 3           
+    
+        self.shift_lo = self.epsilon_lo * (preratio9_lo * 2/15 - preratio3_lo)        
+        self.shift_hi = self.epsilon_hi * (preratio9_hi * 2/15 - preratio3_hi) 
+    
     def __call__(self, position):
         
         r_low = position[0] - self.low
         r_high = self.high - position[0]
         
-        energy_low =  self.epsilon * ((2/15)*(self.sigma / r_low)**9 - (self.sigma / r_low)**3) - self.shift
-        energy_high = self.epsilon * ((2/15)*(self.sigma / r_high)**9 - (self.sigma / r_high)**3) - self.shift
+        energy_low =  self.epsilon_lo * ((2/15)*(self.sigma_lo / r_low)**9 - (self.sigma_lo / r_low)**3) - self.shift_lo
+        energy_high = self.epsilon_hi * ((2/15)*(self.sigma_hi / r_high)**9 - (self.sigma_hi / r_high)**3) - self.shift_hi
         
-        energy_low = np.where(r_low >= self.cutoff, 0.0, energy_low)
-        energy_high = np.where(r_high >= self.cutoff, 0.0, energy_high)
+        energy_low = np.where(r_low >= self.cutoff_lo, 0.0, energy_low)
+        energy_high = np.where(r_high >= self.cutoff_hi, 0.0, energy_high)
 
         sine_terms = self.calculate_sines(position)
         sine_terms_q = self.calculate_q_sines(position)
@@ -672,11 +1085,11 @@ class TrainingPotentialWithChargeWithLJ93Walls(BaseTrainingPotentialWithCharge):
         r_low = positions[inside, 0] - self.low
         r_high = self.high - positions[inside, 0]
         
-        energy_low =  self.epsilon * ((2/15)*(self.sigma / r_low)**9 - (self.sigma / r_low)**3) - self.shift
-        energy_high = self.epsilon * ((2/15)*(self.sigma / r_high)**9 - (self.sigma / r_high)**3) - self.shift
+        energy_low =  self.epsilon_lo * ((2/15)*(self.sigma_lo / r_low)**9 - (self.sigma_lo / r_low)**3) - self.shift_lo
+        energy_high = self.epsilon_hi * ((2/15)*(self.sigma_hi / r_high)**9 - (self.sigma_hi / r_high)**3) - self.shift_hi
 
-        energy_low[r_low >= self.cutoff] = 0.0
-        energy_high[r_high >= self.cutoff] = 0.0
+        energy_low[r_low >= self.cutoff_lo] = 0.0
+        energy_high[r_high >= self.cutoff_hi] = 0.0
 
         energies[inside] = sine_terms + linear_terms + sine_terms_q * self.q + linear_terms_q * self.q + energy_low + energy_high
 
@@ -720,6 +1133,49 @@ def initialize_external_potentials(config):
                     q_phi1=params['q_phi1'], q_phi2=params['q_phi2'], q_phi3=params['q_phi3'], q_phi4=params['q_phi4'],
                     linear_potentials=linear_potentials, q_linear_potentials=q_linear_potentials, L=params['L'], width=params['width']
                 )
+            elif ext_type.startswith("TrainingPotentialWithChargeCosWithMorseWalls"):
+                kB = config['kB']
+                T = config['T']
+                linear_potentials = [
+                    (params[f'Va{i}']*kB*T, params[f'Vb{i}']*kB*T, params[f'xa{i}'], params[f'xb{i}'])
+                    for i in range(1, int(ext_type[-1]) + 1)
+                ]
+                q_linear_potentials = [
+                    (params[f'q_Va{i}']*kB*T, params[f'q_Vb{i}']*kB*T, params[f'q_xa{i}'], params[f'q_xb{i}'])
+                    for i in range(1, int(ext_type[-1]) + 1)
+                ]
+                external_potentials_dict[type] = TrainingPotentialWithChargeCosWithMorseWalls(
+                    q=params['q'], A1=params['A1']*kB*T, A2=params['A2']*kB*T, A3=params['A3']*kB*T, A4=params['A4']*kB*T,
+                    phi1=params['phi1'], phi2=params['phi2'], phi3=params['phi3'], phi4=params['phi4'],
+                    q_A1=params['q_A1']*kB*T, q_A2=params['q_A2']*kB*T, q_A3=params['q_A3']*kB*T, q_A4=params['q_A4']*kB*T,
+                    q_phi1=params['q_phi1'], q_phi2=params['q_phi2'], q_phi3=params['q_phi3'], q_phi4=params['q_phi4'],
+                    linear_potentials=linear_potentials, q_linear_potentials=q_linear_potentials, L=params['L'],
+                    low=params['low'], high=params['high'],
+                    D0_lo=params['D0_lo']*kB*T, r0_lo=params['r0_lo'], a_inv_lo=params['a_inv_lo'], cutoff_lo=params['cutoff_lo'],
+                    D0_hi=params['D0_hi']*kB*T, r0_hi=params['r0_hi'], a_inv_hi=params['a_inv_hi'], cutoff_hi=params['cutoff_hi']
+                )
+            elif ext_type.startswith("TrainingPotentialWithChargeCosWithLJ93WallsWithExpField"):
+                kB = config['kB']
+                T = config['T']
+                linear_potentials = [
+                    (params[f'Va{i}']*kB*T, params[f'Vb{i}']*kB*T, params[f'xa{i}'], params[f'xb{i}'])
+                    for i in range(1, int(ext_type[-1]) + 1)
+                ]
+                q_linear_potentials = [
+                    (params[f'q_Va{i}']*kB*T, params[f'q_Vb{i}']*kB*T, params[f'q_xa{i}'], params[f'q_xb{i}'])
+                    for i in range(1, int(ext_type[-1]) + 1)
+                ]
+                external_potentials_dict[type] = TrainingPotentialWithChargeCosWithLJ93WallsWithExpField(
+                    q=params['q'], A1=params['A1']*kB*T, A2=params['A2']*kB*T, A3=params['A3']*kB*T, A4=params['A4']*kB*T,
+                    phi1=params['phi1'], phi2=params['phi2'], phi3=params['phi3'], phi4=params['phi4'],
+                    q_A1=params['q_A1']*kB*T, q_A2=params['q_A2']*kB*T, q_A3=params['q_A3']*kB*T, q_A4=params['q_A4']*kB*T,
+                    q_phi1=params['q_phi1'], q_phi2=params['q_phi2'], q_phi3=params['q_phi3'], q_phi4=params['q_phi4'],
+                    linear_potentials=linear_potentials, q_linear_potentials=q_linear_potentials, L=params['L'],
+                    low=params['low'], high=params['high'], 
+                    epsilon_lo=params['epsilon_lo']*kB*T, sigma_lo=params['sigma_lo'], cutoff_lo=params['cutoff_lo'],
+                    epsilon_hi=params['epsilon_hi']*kB*T, sigma_hi=params['sigma_hi'], cutoff_hi=params['cutoff_hi'],
+                    phi_0_lo=params['phi_0_lo']*kB*T, d_lo=params['d_lo'], phi_0_hi=params['phi_0_hi']*kB*T, d_hi=params['d_hi']
+                )
             elif ext_type.startswith("TrainingPotentialWithChargeWithLJ93Walls"):
                 kB = config['kB']
                 T = config['T']
@@ -737,8 +1193,30 @@ def initialize_external_potentials(config):
                     q_A1=params['q_A1']*kB*T, q_A2=params['q_A2']*kB*T, q_A3=params['q_A3']*kB*T, q_A4=params['q_A4']*kB*T,
                     q_phi1=params['q_phi1'], q_phi2=params['q_phi2'], q_phi3=params['q_phi3'], q_phi4=params['q_phi4'],
                     linear_potentials=linear_potentials, q_linear_potentials=q_linear_potentials, L=params['L'],
-                    low=params['low'], high=params['high'], epsilon=params['epsilon']*kB*T,
-                    sigma=params['sigma'], cutoff=params['cutoff']
+                    low=params['low'], high=params['high'], 
+                    epsilon_lo=params['epsilon_lo']*kB*T, sigma_lo=params['sigma_lo'], cutoff_lo=params['cutoff_lo'],
+                    epsilon_hi=params['epsilon_hi']*kB*T, sigma_hi=params['sigma_hi'], cutoff_hi=params['cutoff_hi']
+                )
+            elif ext_type.startswith("TrainingPotentialWithChargeCosWithLJ93Walls"):
+                kB = config['kB']
+                T = config['T']
+                linear_potentials = [
+                    (params[f'Va{i}']*kB*T, params[f'Vb{i}']*kB*T, params[f'xa{i}'], params[f'xb{i}'])
+                    for i in range(1, int(ext_type[-1]) + 1)
+                ]
+                q_linear_potentials = [
+                    (params[f'q_Va{i}']*kB*T, params[f'q_Vb{i}']*kB*T, params[f'q_xa{i}'], params[f'q_xb{i}'])
+                    for i in range(1, int(ext_type[-1]) + 1)
+                ]
+                external_potentials_dict[type] = TrainingPotentialWithChargeCosWithLJ93Walls(
+                    q=params['q'], A1=params['A1']*kB*T, A2=params['A2']*kB*T, A3=params['A3']*kB*T, A4=params['A4']*kB*T,
+                    phi1=params['phi1'], phi2=params['phi2'], phi3=params['phi3'], phi4=params['phi4'],
+                    q_A1=params['q_A1']*kB*T, q_A2=params['q_A2']*kB*T, q_A3=params['q_A3']*kB*T, q_A4=params['q_A4']*kB*T,
+                    q_phi1=params['q_phi1'], q_phi2=params['q_phi2'], q_phi3=params['q_phi3'], q_phi4=params['q_phi4'],
+                    linear_potentials=linear_potentials, q_linear_potentials=q_linear_potentials, L=params['L'],
+                    low=params['low'], high=params['high'], 
+                    epsilon_lo=params['epsilon_lo']*kB*T, sigma_lo=params['sigma_lo'], cutoff_lo=params['cutoff_lo'],
+                    epsilon_hi=params['epsilon_hi']*kB*T, sigma_hi=params['sigma_hi'], cutoff_hi=params['cutoff_hi']
                 )
             elif ext_type.startswith("TrainingPotentialWithChargeCos"):
                 kB = config['kB']
@@ -798,9 +1276,28 @@ def initialize_external_potentials(config):
                 external_potentials_dict[type] = TrainingPotentialWithLJ93Walls(
                     A1=params['A1']*kB*T, A2=params['A2']*kB*T, A3=params['A3']*kB*T, A4=params['A4']*kB*T,
                     phi1=params['phi1'], phi2=params['phi2'], phi3=params['phi3'], phi4=params['phi4'],
-                    L=params['L'], low=params['low'], high=params['high'], epsilon=params['epsilon']*kB*T,
-                    sigma=params['sigma'], cutoff=params['cutoff'], linear_potentials=linear_potentials
+                    L=params['L'], low=params['low'], high=params['high'], 
+                    epsilon_lo=params['epsilon_lo']*kB*T, sigma_lo=params['sigma_lo'], cutoff_lo=params['cutoff_lo'],
+                    epsilon_hi=params['epsilon_hi']*kB*T, sigma_hi=params['sigma_hi'], cutoff_hi=params['cutoff_hi'],
+                    linear_potentials=linear_potentials
                 )
+            elif ext_type.startswith("TrainingPotentialTanhSin"):
+                kB = config['kB']
+                T = config['T']
+                B1 = params[f'B1']
+                B2 = params[f'B2']
+                B3 = params[f'B3']
+                B4 = params[f'B4']
+                linear_potentials = [
+                    (params[f'Va{i}']*kB*T, params[f'Vb{i}']*kB*T, params[f'xa{i}'], params[f'xb{i}'])
+                    for i in range(1, int(ext_type[-1]) + 1)
+                ]
+                external_potentials_dict[type] = TrainingPotentialTanhSin(
+                    A1=params['A1']*kB*T, A2=params['A2']*kB*T, A3=params['A3']*kB*T, A4=params['A4']*kB*T,
+                    B1=params['B1'], B2=params['B2'], B3=params['B3'], B4=params['B4'],
+                    phi1=params['phi1'], phi2=params['phi2'], phi3=params['phi3'], phi4=params['phi4'],
+                    L=params['L'], linear_potentials=linear_potentials
+                )                
             elif ext_type.startswith("TrainingPotential"):
                 kB = config['kB']
                 T = config['T']
@@ -817,7 +1314,6 @@ def initialize_external_potentials(config):
         else:
             external_potentials_dict[type] = NoExternalPotential()
     return external_potentials_dict
-
 
 
 
