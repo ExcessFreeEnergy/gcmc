@@ -31,7 +31,7 @@ potential_pairs:
 
 
 T: 8000.0
-kB: 1.380649e-23 
+kB: 1.380649e-23
 box_length_x: 24.0
 box_length_y: 24.0
 box_length_z: 24.0
@@ -48,5 +48,8 @@ weights:
 swap_weights: 0.2
 maxdispl: 1.0
 print_energy: False
+
+nbins_x: 800
+density_output_interval: 2000
 
 init_config: 'initial.xyz'

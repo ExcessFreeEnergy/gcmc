@@ -40,7 +40,7 @@ Requirements to run:
 
 Simply clone the repository:
    ```sh
-   git clone https://github.com/annatbui/GCMC.git
+   git clone https://github.com/annatbui/gcmc.git
    ```
 
 ## Citation
@@ -55,7 +55,7 @@ https://doi.org/10.48550/arXiv.2410.02556) | [Phys. Rev. Lett.](https://doi.org/
 ***A. T. Bui, S. J. Cox, **"Dielectrocapillarity for exquisite control of fluids"** (2025)*** 
 
 Links to: [arXiv:2503.09855](
-https://doi.org/10.48550/arXiv.2503.09855)
+https://doi.org/10.48550/arXiv.2503.09855) | [[Nat. Commun.](https://doi.org/XXXXX/XXX)
 
 ## License
 

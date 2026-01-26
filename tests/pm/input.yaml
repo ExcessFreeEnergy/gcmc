@@ -48,5 +48,7 @@ weights:
 swap_weights: 0.2
 maxdispl: 1.0
 print_energy: False
+nbins_x: 800
+density_output_interval: 2000
 
 init_config: 'initial.xyz'
