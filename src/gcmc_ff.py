@@ -355,6 +355,10 @@ class GCMC_FF_SingleType_Simulation:
             if step in self.output_steps:
                 self.log_no_energy(step)
                 self.write_xyz(step)
+
+            self.accumulate_density_profile()
+            if step in self.output_density_steps:
+                self.write_density_profile(step)
                 
         final_step = self.max_steps
         self.log(final_step)
@@ -366,7 +370,7 @@ class GCMC_FF_TwoType_Simulation:
         """
         Initialize the GCMC Simulation with parameters from a configuration dictionary.
         """
-
+        
         initial_config = input_folder +  '/' +  config.get('init_config', 'initial.xyz')
         self.logfile = input_folder + '/' + config.get('logfile', 'gcmc.log')
         self.output_xyz = input_folder + '/' + 'output.xyz'
@@ -420,7 +424,20 @@ class GCMC_FF_TwoType_Simulation:
         self.selection_prob = config.get('selection_weight', (1 - self.swap_prob)*0.5)
         
         self.maxdispl = config.get('maxdispl', 3.0)
-    
+
+        # density profile in x
+        self.nbins_x = config.get("nbins_x", 2000)
+        self.dx = self.box_length_x / self.nbins_x
+        self.area_yz = self.box_length_y * self.box_length_z
+        self.x_edges = np.linspace(0.0, self.box_length_x, self.nbins_x + 1)
+        self.x_centers = 0.5 * (self.x_edges[:-1] + self.x_edges[1:])
+        self.density_hist_1 = np.zeros(self.nbins_x)
+        self.density_hist_2 = np.zeros(self.nbins_x)
+        self.n_density_samples = 0
+        self.density_output_interval = config.get("density_output_interval", self.output_interval)
+        self.output_density_steps = set(range(0, self.max_steps + 1, self.density_output_interval))
+        self.density_file = input_folder + "/density_x.dat"
+
     def load_xyz(self, filename):
         """
         Load particle positions from an XYZ file.
@@ -740,6 +757,26 @@ class GCMC_FF_TwoType_Simulation:
                 self.positions_1 = np.vstack([self.positions_1, old_pos])     
                 self.number1 = self.number1 + 1 
 
+    def accumulate_density_profile(self):
+        """
+        Accumulate instantaneous density profile along x.
+        """
+        hist_1, _ = np.histogram(self.positions_1[:, 0], bins=self.x_edges)
+        hist_2, _ = np.histogram(self.positions_2[:, 0], bins=self.x_edges)
+        self.density_hist_1 += hist_1
+        self.density_hist_2 += hist_2
+        self.n_density_samples += 1
+
+
+    def get_running_density(self):
+        """
+        Return running average number density rho(x).
+        """
+        if self.n_density_samples == 0:
+            return np.zeros_like(self.x_centers)
+
+        norm = self.area_yz * self.dx * self.n_density_samples
+        return self.density_hist_1 / norm, self.density_hist_2 / norm
 
     def write_xyz_header(self):
         """
@@ -761,7 +798,18 @@ class GCMC_FF_TwoType_Simulation:
                 f.write(f"{self.type1} {pos[0]:.6f} {pos[1]:.6f} {pos[2]:.6f}\n") 
             for pos in self.positions_2:
                 f.write(f"{self.type2} {pos[0]:.6f} {pos[1]:.6f} {pos[2]:.6f}\n") 
-            
+
+    def write_density_profile(self, step):
+        """
+        Write running average density profile to file.
+        """
+
+        rho_x_1, rho_x_2 = self.get_running_density()
+
+        with open(self.density_file, "w") as f:
+            f.write("# x  rho_{}(x) rho_{}(x)  step = {}\n ".format(self.type1, self.type2, step))
+            for x, rho1, rho2 in zip(self.x_centers, rho_x_1, rho_x_2):
+                f.write(f"{x:.10f} {rho1:.20e} {rho2:.20e}\n")
 
     def log(self, step):
         """
@@ -806,6 +854,10 @@ class GCMC_FF_TwoType_Simulation:
             if step in self.output_steps:
                 self.log(step)
                 self.write_xyz(step)
+
+            self.accumulate_density_profile()
+            if step in self.output_density_steps:
+                self.write_density_profile(step)
                 
         final_step = self.max_steps
         self.log(final_step)
@@ -832,7 +884,10 @@ class GCMC_FF_TwoType_Simulation:
             if step in self.output_steps:
                 self.log_no_energy(step)
                 self.write_xyz(step)
-                
+            
+            self.accumulate_density_profile()
+            if step in self.output_density_steps:
+                self.write_density_profile(step)
                 
         final_step = self.max_steps
         self.log(final_step)
