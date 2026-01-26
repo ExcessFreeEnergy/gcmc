@@ -34,36 +34,42 @@ if __name__ == "__main__":
     )
         
     args = parser.parse_args()
-        
+
     input_folder = args.input_folder
     config = read_input.load_config(input_folder + '/' + 'input.yaml')    
     ext_potentials = external_potentials.initialize_external_potentials(config)
     replica_exchange = config.get('replica_exchange', False)
-
     print_energy = config.get('print_energy', True)
+    molecule_flag = config.get('molecule', 'None')
     
     if replica_exchange == False:
         
         import potentials
         import gcmc_ff
         pair_potentials = potentials.initialize_potentials(config)
-            
-        if len(config['particle_types']) == 1:
-            simulation = gcmc_ff.GCMC_FF_SingleType_Simulation(config, pair_potentials, ext_potentials, input_folder)
-            if print_energy:
-                simulation.run_simulation()
+
+        if molecule_flag == 'None':
+            if len(config['particle_types']) == 1:
+                SimulationClass = gcmc_ff.GCMC_FF_SingleType_Simulation
+            elif len(config['particle_types']) == 2:
+                SimulationClass = gcmc_ff.GCMC_FF_TwoType_Simulation
             else:
-                simulation.run_simulation_no_energy()
-        elif len(config['particle_types']) == 2:
-            simulation = gcmc_ff.GCMC_FF_TwoType_Simulation(config, pair_potentials, ext_potentials, input_folder)
-            if print_energy:
-                simulation.run_simulation()
-            else:
-                simulation.run_simulation_no_energy()
+                SimulationClass = gcmc_ff.GCMC_FF_MultiType_Simulation
         else:
-            simulation = gcmc_ff.GCMC_FF_MultiType_Simulation(config, pair_potentials, ext_potentials, input_folder)
+            if molecule_flag == 'ABC':
+                SimulationClass = gcmc_ff_molecule.GCMC_FF_ABC_Simulation
+            elif molecule_flag == 'H2O':
+                SimulationClass = gcmc_ff_molecule.GCMC_FF_H2O_Simulation
+            else:
+                raise ValueError(f"Unknown molecule_flag: {molecule_flag}")
+
+        # Instantiate and run
+        simulation = SimulationClass(config, pair_potentials, ext_potentials, input_folder)
+        if print_energy:
             simulation.run_simulation()
-                
+        else:
+            simulation.run_simulation_no_energy()
+            
     else:
         import gcmc_re
         gcmc_re.main(config, input_folder)
