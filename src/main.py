@@ -46,6 +46,7 @@ if __name__ == "__main__":
         
         import potentials
         import gcmc_ff
+        import gcmc_ff_molecule
         pair_potentials = potentials.initialize_potentials(config)
 
         if molecule_flag == 'None':
