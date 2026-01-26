@@ -19,6 +19,7 @@
 import numpy as np
 from collections import Counter
 import gzip
+import tools as tls
 
 class GCMC_FF_SingleType_Simulation:
     def __init__(self, config, potentials, external_potentials, input_folder):
@@ -66,6 +67,19 @@ class GCMC_FF_SingleType_Simulation:
         
         self.maxdispl = config.get('maxdispl', 3.0)
         
+
+        # density profile in x
+        self.nbins_x = config.get("nbins_x", 2000)
+        self.dx = self.box_length_x / self.nbins_x
+        self.area_yz = self.box_length_y * self.box_length_z
+        self.x_edges = np.linspace(0.0, self.box_length_x, self.nbins_x + 1)
+        self.x_centers = 0.5 * (self.x_edges[:-1] + self.x_edges[1:])
+        self.density_hist = np.zeros(self.nbins_x)
+        self.n_density_samples = 0
+        self.density_output_interval = config.get("density_output_interval", self.output_interval)
+        self.output_density_steps = set(range(0, self.max_steps + 1, self.density_output_interval))
+        self.density_file = input_folder + "/density_x.dat"
+
     def load_xyz(self, filename):
         """
         Load particle positions from an XYZ file.
@@ -218,8 +232,27 @@ class GCMC_FF_SingleType_Simulation:
                 prob_accept = np.exp(log_prob_accept)
                 if np.random.rand() < prob_accept:
                     self.positions[idx] = new_pos
-                    
-                
+
+    def accumulate_density_profile(self):
+        """
+        Accumulate instantaneous density profile along x.
+        """
+        x = self.positions[:, 0]
+        hist, _ = np.histogram(x, bins=self.x_edges)
+
+        self.density_hist += hist
+        self.n_density_samples += 1
+
+
+    def get_running_density(self):
+        """
+        Return running average number density rho(x).
+        """
+        if self.n_density_samples == 0:
+            return np.zeros_like(self.x_centers)
+
+        norm = self.area_yz * self.dx * self.n_density_samples
+        return self.density_hist / norm
          
     def write_xyz(self, step):
         """
@@ -240,6 +273,18 @@ class GCMC_FF_SingleType_Simulation:
         
         with gzip.open(self.output_xyz + '.gz', 'wt') as f:
             pass
+
+    def write_density_profile(self, step):
+        """
+        Write running average density profile to file.
+        """
+
+        rho_x = self.get_running_density()
+
+        with open(self.density_file, "w") as f:
+            f.write("# x  rho(x)   step = {}\n ".format(step))
+            for x, rho in zip(self.x_centers, rho_x):
+                f.write(f"{x:.10f} {rho:.20e}\n")
                         
     def log(self, step):
         """
@@ -282,7 +327,11 @@ class GCMC_FF_SingleType_Simulation:
             if step in self.output_steps:
                 self.log(step)
                 self.write_xyz(step)
-                
+        
+            self.accumulate_density_profile()
+            if step in self.output_density_steps:
+                self.write_density_profile(step)
+        
         final_step = self.max_steps
         self.log(final_step)
         self.write_xyz(self.max_steps)
@@ -1006,6 +1055,26 @@ class GCMC_FF_MultiType_Simulation:
         self.write_log_header()
         self.write_xyz_header()
         
+        
+        # Equilibration phase
+        for step in range(self.max_steps):
+            self.gcmc_step()
+            if step % self.output_interval == 0:
+                num_particles = self.number
+                self.log(step, num_particles)
+                self.write_xyz(step)
+                
+        final_step = self.max_steps
+        final_num_particles = self.number
+        self.log(final_step, final_num_particles)
+        self.write_xyz(self.max_steps)
+
+    def run_simulation_no_energy(self):
+        """
+        Run the GCMC simulation for the configured number of steps.
+        """
+        self.write_log_header()
+        self.write_xyz_header()
         
         # Equilibration phase
         for step in range(self.max_steps):
