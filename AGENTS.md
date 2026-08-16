@@ -32,7 +32,7 @@ where $c^{(1)} = -\delta \beta \mathcal{F}_{\rm intr}^{\rm ex} / \delta \rho(z)$
 
 ### 2.2 Short-Range Coulomb Splitting (LMFT)
 Direct machine learning of non-local long-range electrostatic functionals is intractable. The Coulomb potential is partitioned into a short-ranged (SR) reference contribution $v_0(r)$ and a smooth long-range (LR) contribution $v_1(r)$:
-$$\frac{1}{r} = v_0(r) + v_1(r) \equiv \frac{\operatorname{erfc}(\kappa r)}{r} + \frac{\operatorname{erf}(\kappa r)}{r}$$
+$$\frac{1}{r} = v_0(r) + v_1(r) \equiv \frac{\text{erfc}(\kappa r)}{r} + \frac{\text{erf}(\kappa r)}{r}$$
 - For water (SPC/E) and the simple dipolar Stockmayer fluid: $\kappa^{-1} = 4.5\,\text{Å}$.
 - For electrolytes (RPM): $\kappa^{-1} = 5.0\,\text{Å}$.
 

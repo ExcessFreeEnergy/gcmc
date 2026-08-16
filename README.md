@@ -31,8 +31,8 @@ This repository is a modernized, accelerated fork of [https://github.com/annatbu
    - PPO / PuffeRL vectorized training script (`train_pufferl.py`) training 100,000 timesteps in **1.85 seconds**.
 4. **Short-Range Coulomb Splitting (LMFT)**:
    - Evaluates short-range reference Coulomb interactions in real space without reciprocal-space Ewald overhead:
-     $$v_0(r) = \frac{\operatorname{erfc}(\kappa r)}{r}$$
-     where $\kappa^{-1} = 4.5\,\text{Å}$ for water/dipoles and $5.0\,\text{Å}$ for RPM electrolytes.
+     $$v_0(r) = \frac{\text{erfc}(\kappa r)}{r}$$
+     where $\kappa^{-1} = 4.5\text{ Å}$ for water/dipoles and $5.0\text{ Å}$ for RPM electrolytes.
 5. **Modern Packaging with `uv`**:
    - Fast, reproducible dependency management and execution via `uv`.
 
