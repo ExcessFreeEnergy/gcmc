@@ -493,14 +493,16 @@ class GCMC_FF_TwoType_Simulation:
             deltas = positions1[:, np.newaxis, :] - positions2[np.newaxis, :, :]
             deltas = self.minimum_image(deltas)  # Apply periodic boundary conditions
             distances = np.linalg.norm(deltas, axis=2)
-            np.fill_diagonal(distances, np.inf) # Exclude self-interaction
-            within_rc = (distances < global_rc)
-            energies = np.zeros_like(distances)
-            energies[within_rc] = potential.calculate(distances[within_rc])
-            
             if exclude_self:
+                np.fill_diagonal(distances, np.inf) # Exclude self-interaction
+                within_rc = (distances < global_rc)
+                energies = np.zeros_like(distances)
+                energies[within_rc] = potential.calculate(distances[within_rc])
                 return np.sum(np.triu(energies, k=1))
             else:
+                within_rc = (distances < global_rc)
+                energies = np.zeros_like(distances)
+                energies[within_rc] = potential.calculate(distances[within_rc])
                 return np.sum(energies)
 
         total_pairwise_energy = 0.0

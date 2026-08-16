@@ -1,5 +1,7 @@
-"""GCMC simulation package."""
-from gcmc import v1
+"""GCMC - Grand Canonical Monte Carlo for fluids with short-ranged potentials."""
 
-__all__ = ["v1"]
-__version__ = "0.1.0"
+from . import v1
+from . import v2
+from .main import cli
+
+__all__ = ["v1", "v2", "cli"]

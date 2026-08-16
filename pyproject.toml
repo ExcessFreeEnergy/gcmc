@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gcmc"
-version = "0.1.0"
+version = "0.2.0"
 description = "Grand Canonical Monte Carlo for fluids with short-ranged Gaussian truncated potentials"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -30,12 +30,16 @@ mpi = [
 ]
 
 [project.scripts]
-gcmc = "gcmc.v1.main:cli"
+gcmc = "gcmc.main:cli"
+gcmc-v2 = "gcmc.main:cli"
 gcmc-v1 = "gcmc.v1.main:cli"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"*" = ["*.so", "*.h", "*.cu", "*.cpp"]
+
 [tool.pytest.ini_options]
-testpaths = ["tests/v1"]
+testpaths = ["tests"]
 python_files = ["test_*.py"]
