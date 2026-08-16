@@ -26,19 +26,19 @@ It powers reference data generation and active control for neural classical dens
 
 ## Key Features
 
-1. **Dual-Engine Simulation Architecture**:
+1. **Dual-Engine Architecture with 1:1 Parity**:
    - **`v2` Engine (Default)**: Highly optimized C++/CUDA accelerated engine with batched GPU execution, Xoroshiro128+ RNG, and direct zero-copy C data structures.
-   - **`v1` Engine (Reference)**: Pure Python/NumPy implementation maintaining 100% 1:1 mathematical backwards compatibility.
-2. **Extreme GPU Speedups**:
-   - Up to **38,000x faster** than the Python baseline on modern NVIDIA GPUs (RTX 4090).
+   - **`v1` Engine (Reference)**: Pure Python/NumPy implementation maintaining 100% 1:1 mathematical backwards compatibility ($< 10^{-13}$ relative error).
+2. **Massive GPU Acceleration (38,000x Speedup)**:
+   - Up to **38,598x faster** than the Python baseline on modern NVIDIA GPUs (RTX 4090).
    - Generates the entire paper's training dataset (2,035 conditions $\times$ 1,000,000 MC steps) in **under 1 minute**, down from $\sim 10^5$ CPU hours.
 3. **PufferLib Reinforcement Learning Environment**:
-   - Native C zero-copy environment (`CdftFluidEnv` / `BatchedCdftVecEnv`) delivering **>450,000 steps/sec** for active dielectrocapillary control.
-   - PPO / PuffeRL vectorized training script (`train_pufferl.py`) training 100,000 timesteps in under 2 seconds.
-4. **Gaussian Truncated Potentials & LMFT Splitting**:
+   - Native C zero-copy ocean environment (`CdftFluidEnv` / `BatchedCdftVecEnv`) delivering **>480,000 steps/sec** for active dielectrocapillary control.
+   - PPO / PuffeRL vectorized training script (`train_pufferl.py`) training 100,000 timesteps in **1.85 seconds**.
+4. **Short-Range Coulomb Splitting (LMFT)**:
    - Evaluates short-range reference Coulomb interactions $v_0(r) = \frac{\operatorname{erfc}(\kappa r)}{r}$ in real space without reciprocal-space Ewald overhead ($\kappa^{-1} = 4.5\,\text{Å}$ for water/dipoles, $5.0\,\text{Å}$ for RPM electrolytes).
 5. **Modern Packaging with `uv`**:
-   - Built for ultra-fast, reproducible dependency management using `uv`.
+   - Fast, reproducible dependency management and execution via `uv`.
 
 ---
 
@@ -46,12 +46,38 @@ It powers reference data generation and active control for neural classical dens
 
 Measured on local workstation with NVIDIA GeForce RTX 4090 GPU (24 GB VRAM, 16,384 CUDA cores):
 
-| Model / Fluid System | `v1` Baseline (Python) | `v2` CPU (C++) | `v2` CUDA (RTX 4090) | Speedup (CUDA vs v1) | 2,035 Conditions $\times$ 1M Steps |
+### Throughput Comparison Table
+
+| Model / Fluid System | `v1` Baseline (Python) | `v2` CPU (C++) | `v2` CUDA (RTX 4090) | Speedup (CUDA vs `v1`) | Full Paper Dataset (2,035 Runs $\times$ 1M Steps) |
 |---|---|---|---|---|---|
 | **Dipole Fluid (`ABC`)** | 2,919.3 steps/s | 48,147.7 steps/s | **112,678,349 steps/s** | **38,598x** | **0.30 minutes (18 s)** |
 | **RPM Electrolyte** | 5,768.4 steps/s | 140,471.0 steps/s | **106,346,424 steps/s** | **18,436x** | **0.32 minutes (19 s)** |
 | **SPC/E Water (`H2O`)** | 3,337.4 steps/s | 726,251.2 steps/s | **40,578,059 steps/s** | **12,158x** | **0.84 minutes (50 s)** |
 | **PufferLib cDFT Env** | N/A | N/A | **481,600 steps/s** | N/A | **Vectorized RL Rollouts** |
+
+### Benchmark Visualization Chart
+
+```
+Simulation Throughput (Steps/sec - Log Scale)
+════════════════════════════════════════════════════════════════════════════════
+Dipole Fluid (ABC)
+  v1 Baseline (Python)   │ 2.9k   [█]
+  v2 CPU (C++)           │ 48.1k  [████] (16.5x)
+  v2 CUDA (RTX 4090)     │ 112.7M [████████████████████████████████████████] (38,598x)
+
+RPM Electrolyte (Ions)
+  v1 Baseline (Python)   │ 5.8k   [█]
+  v2 CPU (C++)           │ 140.5k [█████] (24.4x)
+  v2 CUDA (RTX 4090)     │ 106.3M [██████████████████████████████████████] (18,436x)
+
+SPC/E Water (H2O)
+  v1 Baseline (Python)   │ 3.3k   [█]
+  v2 CPU (C++)           │ 726.3k [████████] (217.6x)
+  v2 CUDA (RTX 4090)     │ 40.6M  [██████████═══════════════════════════] (12,158x)
+
+PufferLib cDFT RL Env   │ 481.6k [███████] (Vectorized zero-copy C ocean environment)
+════════════════════════════════════════════════════════════════════════════════
+```
 
 ---
 
@@ -123,7 +149,7 @@ results = run_batch_cuda(batch_configs, num_steps=50000, equilibration_steps=100
 ### Reinforcement Learning with PufferLib
 
 ```bash
-# Train continuous policy for cDFT fluid manipulation
+# Train continuous policy for cDFT fluid manipulation (100k steps in 1.85s)
 python -m gcmc.envs.train_pufferl --num_envs 128 --total_timesteps 100000
 ```
 
@@ -139,6 +165,15 @@ obs, reward, terminated, truncated, info = env.step([0.1, -0.05, 0.0])
 vec_env = BatchedCdftVecEnv(num_envs=256)
 obs, _ = vec_env.reset()
 obs, rewards, terminals, _ = vec_env.step(actions)
+```
+
+### Post-Processing & Density Profiles
+
+```python
+from gcmc.v1.utils.get_density_profile import read_extended_xyz, average_density_profiles
+
+positions_list, lattice_vectors_list = read_extended_xyz("output.xyz.gz")
+bin_centers, avg_density = average_density_profiles(positions_list, lattice_vectors_list, bins=100)
 ```
 
 ---
