@@ -79,7 +79,7 @@ PufferLib cDFT RL Env   │ 481.6k [███████] (Vectorized zero-copy
 
 ## Published Dataset Validation
 
-Direct validation against the published data from the study ([OnlineData.tgz](https://github.com/ExcessFreeEnergy/gcmc)) for bulk 256-molecule SPC/E water and slab confinement:
+Direct validation against the published data from the study ([OnlineData.tgz](https://doi.org/10.17863/CAM.52565)) for bulk 256-molecule SPC/E water and slab confinement:
 
 | Metric / Property | Published Data (`OnlineData`) | `v1` Baseline (Python) | `v2` Engine (C++/CUDA) | Relative Difference / Status |
 |---|---|---|---|---|
