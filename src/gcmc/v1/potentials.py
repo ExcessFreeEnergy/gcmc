@@ -19,7 +19,10 @@
 import numpy as np
 from scipy.special import erfc
 import scipy.constants as const
-from constants import very_large_number
+try:
+    from .constants import very_large_number
+except ImportError:
+    from constants import very_large_number
 
 # Utility functions for unit conversions
 def angstroms_to_meters(value):

@@ -17,7 +17,10 @@
 '''
 
 import numpy as np
-from constants import very_large_number
+try:
+    from .constants import very_large_number
+except ImportError:
+    from constants import very_large_number
 
 class ExtPotential:
     def __call__(self, position):
@@ -1310,7 +1313,8 @@ def initialize_external_potentials(config):
                     phi1=params['phi1'], phi2=params['phi2'], phi3=params['phi3'], phi4=params['phi4'],
                     L=params['L'], linear_potentials=linear_potentials
                 )
-
+            else:
+                external_potentials_dict[type] = NoExternalPotential()
         else:
             external_potentials_dict[type] = NoExternalPotential()
     return external_potentials_dict

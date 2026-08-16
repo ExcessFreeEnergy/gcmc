@@ -16,11 +16,15 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 '''
 
-from molecule_base import GCMCMoleculeBaseSimulation
+try:
+    from .molecule_base import GCMCMoleculeBaseSimulation
+    from . import tools as tls
+except ImportError:
+    from molecule_base import GCMCMoleculeBaseSimulation
+    import tools as tls
 import numpy as np
 from collections import Counter
 import gzip
-import tools as tls
 
 
 class GCMC_FF_ABC_Simulation(GCMCMoleculeBaseSimulation):

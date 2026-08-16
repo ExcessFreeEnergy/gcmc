@@ -19,7 +19,10 @@
 import numpy as np
 from collections import Counter
 import gzip
-import tools as tls
+try:
+    from . import tools as tls
+except ImportError:
+    import tools as tls
 
 class GCMC_FF_SingleType_Simulation:
     def __init__(self, config, potentials, external_potentials, input_folder):

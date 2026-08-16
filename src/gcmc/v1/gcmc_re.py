@@ -19,11 +19,16 @@
 import numpy as np
 import gzip
 import mpi4py.MPI as MPI
-import argparse
-import read_input
-import external_potentials 
-import potentials
-from gcmc_ff import GCMC_FF_SingleType_Simulation, GCMC_FF_TwoType_Simulation
+try:
+    from . import read_input
+    from . import external_potentials 
+    from . import potentials
+    from .gcmc_ff import GCMC_FF_SingleType_Simulation, GCMC_FF_TwoType_Simulation
+except ImportError:
+    import read_input
+    import external_potentials 
+    import potentials
+    from gcmc_ff import GCMC_FF_SingleType_Simulation, GCMC_FF_TwoType_Simulation
 
 
 class GCMC_FF_SingleType_Replica(GCMC_FF_SingleType_Simulation):

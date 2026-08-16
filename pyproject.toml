@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gcmc"
+version = "0.1.0"
+description = "Grand Canonical Monte Carlo for fluids with short-ranged Gaussian truncated potentials"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "GPL-3.0-or-later" }
+authors = [
+    { name = "Anna Bui" },
+]
+dependencies = [
+    "numpy>=1.24.0",
+    "scipy>=1.10.0",
+    "pyyaml>=6.0",
+    "tqdm>=4.66.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-benchmark>=4.0.0",
+    "matplotlib>=3.7.0",
+]
+mpi = [
+    "mpi4py>=3.1.0",
+]
+
+[project.scripts]
+gcmc = "gcmc.v1.main:cli"
+gcmc-v1 = "gcmc.v1.main:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/v1"]
+python_files = ["test_*.py"]

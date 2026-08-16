@@ -2,8 +2,10 @@ import numpy as np
 import gzip
 import sys
 import yaml
-#sys.path.insert(0, '/scratch/btb32/code/GCMC/src')
-from external_potentials import initialize_external_potentials
+try:
+    from gcmc.v1.external_potentials import initialize_external_potentials
+except ImportError:
+    from external_potentials import initialize_external_potentials
 import csv
 from collections import defaultdict
 import argparse

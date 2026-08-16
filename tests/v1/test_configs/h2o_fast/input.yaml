@@ -1,0 +1,59 @@
+molecule: 'H2O'
+
+particle_types:
+  H2O:
+    mu: -8.0
+  O:
+    mu: nan
+    Vext: 'NoExternalPotential'
+  H:
+    mu: nan
+    Vext: 'NoExternalPotential'
+
+potential_pairs:
+  O_O:
+    type: 'LJ+C'
+    epsilon_lj: 0.15535 # kcal/mol
+    sigma_lj: 3.166
+    rc: 10.0
+    epsilon_c: 1.0
+    q1: -0.8476
+    q2: -0.8476
+    kappa_inv: 4.5
+  H_H:
+    type: 'LJ+C'
+    epsilon_lj: 0.0
+    sigma_lj: 1.0
+    rc: 10.0
+    epsilon_c: 1.0
+    q1: 0.4238
+    q2: 0.4238
+    kappa_inv: 4.5
+  H_O:
+    type: 'LJ+C'
+    epsilon_lj: 0.0
+    sigma_lj: 1.0
+    rc: 10.0
+    epsilon_c: 1.0
+    q1: 0.4238
+    q2: -0.8476
+    kappa_inv: 4.5
+
+T: 700.0
+kB: 1.380649e-23
+box_length_x: 20.0
+box_length_y: 20.0
+box_length_z: 20.0
+
+global_rc: 10.0
+max_steps: 1000
+equilibration: 200
+output_interval: 100
+weights:
+  insert: 1.0
+  delete: 1.0
+  displace: 0.2
+  rotate: 0.2
+
+print_energy: True
+init_config: 'initial.xyz'

@@ -1,0 +1,281 @@
+molecule: 'ABC'
+
+particle_types:
+  ABC: 
+    mu: -8.6758
+  A:
+    mu: nan
+    Vext: 'TrainingPotentialWithChargeCos1'
+    L: 20.0
+    low: 2.0
+    high: 18.0
+    cutoff: 0.858374218933
+    epsilon: 1.0
+    sigma: 1.0
+    A1: 0.0
+    A2: 0.0
+    A3: 0.0
+    A4: 0.0
+    phi1: 0.0
+    phi2: 0.0
+    phi3: 0.0
+    phi4: 0.0
+    Va1: 0.0
+    Vb1: 0.0
+    xa1: 12.7778
+    xb1: 16.1842
+    Va2: 0.0
+    Vb2: 0.0
+    xa2: 10.2638
+    xb2: 12.8906
+    Va3: 0.0
+    Vb3: 0.0
+    xa3: 14.4584
+    xb3: 18.4918
+    Va4: 0.0
+    Vb4: 0.0
+    xa4: 7.0549
+    xb4: 18.6465
+    Va5: 0.0
+    Vb5: 0.0
+    xa5: 5.1331
+    xb5: 15.9588
+    q: 0.00
+    q_A1: -68.3132
+    q_A2: 0.0
+    q_A3: 0.0
+    q_A4: -0.0
+    q_phi1: 0.0
+    q_phi2: 0.0
+    q_phi3: 0.0
+    q_phi4: 0.0
+    q_Va1: 0.0
+    q_Vb1: 0.0
+    q_xa1: 4.0313
+    q_xb1: 10.4535
+    q_Va2: 0.0
+    q_Vb2: 0.0
+    q_xa2: 16.7633
+    q_xb2: 19.9452
+    q_Va3: 0.0
+    q_Vb3: 0.0
+    q_xa3: 6.7528
+    q_xb3: 13.6835
+    q_Va4: -8.7454
+    q_Vb4: -1.7257
+    q_xa4: 4.6389
+    q_xb4: 8.6806
+    q_Va5: 21.7441
+    q_Vb5: 1.2093
+    q_xa5: 7.0731
+    q_xb5: 16.6123
+  B:
+    mu: nan
+    Vext: 'TrainingPotentialWithChargeCos1'
+    L: 20.0
+    low: 2.0
+    high: 18.0
+    cutoff: 0.858374218933
+    epsilon: 1.0
+    sigma: 1.0
+    A1: 0.0
+    A2: 0.0
+    A3: 0.0
+    A4: 0.0
+    phi1: 0.0
+    phi2: 0.0
+    phi3: 0.0
+    phi4: 0.0
+    Va1: 0.0
+    Vb1: 0.0
+    xa1: 17.3377
+    xb1: 19.3483
+    Va2: 0.0
+    Vb2: 0.0
+    xa2: 8.3246
+    xb2: 17.312
+    Va3: 0.0
+    Vb3: 0.0
+    xa3: 10.5065
+    xb3: 14.135
+    Va4: 0.0
+    Vb4: 0.0
+    xa4: 7.7051
+    xb4: 9.9143
+    Va5: 0.0
+    Vb5: 0.0
+    xa5: 12.579
+    xb5: 16.0613
+    q: 0.38200
+    q_A1: -68.3132
+    q_A2: 0.0
+    q_A3: 0.0
+    q_A4: -0.0
+    q_phi1: 0.0
+    q_phi2: 0.0
+    q_phi3: 0.0
+    q_phi4: 0.0
+    q_Va1: 0.0
+    q_Vb1: 0.0
+    q_xa1: 4.0313
+    q_xb1: 10.4535
+    q_Va2: 0.0
+    q_Vb2: 0.0
+    q_xa2: 16.7633
+    q_xb2: 19.9452
+    q_Va3: 0.0
+    q_Vb3: 0.0
+    q_xa3: 6.7528
+    q_xb3: 13.6835
+    q_Va4: -8.7454
+    q_Vb4: -1.7257
+    q_xa4: 4.6389
+    q_xb4: 8.6806
+    q_Va5: 21.7441
+    q_Vb5: 1.2093
+    q_xa5: 7.0731
+    q_xb5: 16.6123
+  C:
+    mu: nan
+    Vext: 'TrainingPotentialWithChargeCos1'
+    L: 20.0
+    low: 2.0
+    high: 18.0
+    cutoff: 0.858374218933
+    epsilon: 1.0
+    sigma: 1.0
+    A1: 0.0
+    A2: 0.0
+    A3: 0.0
+    A4: 0.0
+    phi1: 0.0
+    phi2: 0.0
+    phi3: 0.0
+    phi4: 0.0
+    Va1: 0.0
+    Vb1: 0.0
+    xa1: 17.3377
+    xb1: 19.3483
+    Va2: 0.0
+    Vb2: 0.0
+    xa2: 8.3246
+    xb2: 17.312
+    Va3: 0.0
+    Vb3: 0.0
+    xa3: 10.5065
+    xb3: 14.135
+    Va4: 0.0
+    Vb4: 0.0
+    xa4: 7.7051
+    xb4: 9.9143
+    Va5: 0.0
+    Vb5: 0.0
+    xa5: 12.579
+    xb5: 16.0613
+    q: -0.38200
+    q_A1: -68.3132
+    q_A2: 0.0
+    q_A3: 0.0
+    q_A4: -0.0
+    q_phi1: 0.0
+    q_phi2: 0.0
+    q_phi3: 0.0
+    q_phi4: 0.0
+    q_Va1: 0.0
+    q_Vb1: 0.0
+    q_xa1: 4.0313
+    q_xb1: 10.4535
+    q_Va2: 0.0
+    q_Vb2: 0.0
+    q_xa2: 16.7633
+    q_xb2: 19.9452
+    q_Va3: 0.0
+    q_Vb3: 0.0
+    q_xa3: 6.7528
+    q_xb3: 13.6835
+    q_Va4: -8.7454
+    q_Vb4: -1.7257
+    q_xa4: 4.6389
+    q_xb4: 8.6806
+    q_Va5: 21.7441
+    q_Vb5: 1.2093
+    q_xa5: 7.0731
+    q_xb5: 16.6123
+
+
+potential_pairs:
+  A_A:
+    type: 'LJ+C'
+    epsilon_lj: 0.4469407
+    sigma_lj: 3.024
+    rc: 10.0
+    epsilon_c: 1.0
+    q1: 0.0
+    q2: 0.0
+    kappa_inv: 4.5
+  B_B:
+    type: 'LJ+C'
+    epsilon_lj: 0.0
+    sigma_lj: 1.0
+    rc: 10.0
+    epsilon_c: 1.0
+    q1: 0.38200
+    q2: 0.38200
+    kappa_inv: 4.5
+  C_C:
+    type: 'LJ+C'
+    epsilon_lj: 0.0
+    sigma_lj: 1.0
+    rc: 10.0
+    epsilon_c: 1.0
+    q1: -0.38200
+    q2: -0.38200
+    kappa_inv: 4.5
+  A_B:
+    type: 'LJ+C'
+    epsilon_lj: 0.0
+    sigma_lj: 1.0
+    rc: 10.0
+    epsilon_c: 1.0
+    q1: 0.0
+    q2: 0.382
+    kappa_inv: 4.5
+  A_C:
+    type: 'LJ+C'
+    epsilon_lj: 0.0
+    sigma_lj: 1.0
+    rc: 10.0
+    epsilon_c: 1.0
+    q1: 0.0
+    q2: -0.38200
+    kappa_inv: 4.5
+  B_C:
+    type: 'LJ+C'
+    epsilon_lj: 0.0
+    sigma_lj: 1.0
+    rc: 10.0
+    epsilon_c: 1.0
+    q1: 0.38200
+    q2: -0.38200
+    kappa_inv: 4.5
+
+
+bond_length: 0.5
+T: 500.0
+kB: 1.380649e-23
+box_length_x: 20.0
+box_length_y: 20.0
+box_length_z: 20.0
+
+global_rc: 10.0
+max_steps: 1000
+equilibration: 200
+output_interval: 100
+weights:
+  insert: 1.0
+  delete: 1.0
+  displace: 0.2
+  rotate: 0.2
+
+print_energy: True
+init_config: 'initial.xyz'
