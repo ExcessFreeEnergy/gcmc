@@ -2,6 +2,8 @@
 High-throughput PPO / PuffeRL training for cDFT fluid manipulation.
 """
 
+import os
+import sys
 import time
 import argparse
 import numpy as np
