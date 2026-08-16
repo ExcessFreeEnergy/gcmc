@@ -87,6 +87,9 @@ int gcmc_v2_get_number2(GCMCHandle handle);
 
 void gcmc_v2_run(GCMCHandle handle);
 void gcmc_v2_run_no_energy(GCMCHandle handle);
+void gcmc_v2_step(GCMCHandle handle);
+void gcmc_v2_get_site_pos(GCMCHandle handle, int mol_idx, int site_idx, double* x, double* y, double* z);
+int gcmc_v2_get_molecule_species(GCMCHandle handle, int mol_idx);
 
 #ifdef __cplusplus
 }

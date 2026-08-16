@@ -236,3 +236,31 @@ void gcmc_v2_run_no_energy(GCMCHandle handle) {
     auto sim = static_cast<GCMCSimulationV2*>(handle);
     sim->run_simulation_no_energy();
 }
+
+void gcmc_v2_step(GCMCHandle handle) {
+    auto sim = static_cast<GCMCSimulationV2*>(handle);
+    sim->step();
+}
+
+void gcmc_v2_get_site_pos(GCMCHandle handle, int mol_idx, int site_idx, double* x, double* y, double* z) {
+    auto sim = static_cast<GCMCSimulationV2*>(handle);
+    if (mol_idx < 0 || mol_idx >= static_cast<int>(sim->molecules.size())) {
+        if (x) *x = 0.0; if (y) *y = 0.0; if (z) *z = 0.0;
+        return;
+    }
+    const auto& mol = sim->molecules[mol_idx];
+    if (site_idx < 0 || site_idx >= mol.num_sites) {
+        if (x) *x = 0.0; if (y) *y = 0.0; if (z) *z = 0.0;
+        return;
+    }
+    if (x) *x = mol.sites[site_idx].x;
+    if (y) *y = mol.sites[site_idx].y;
+    if (z) *z = mol.sites[site_idx].z;
+}
+
+int gcmc_v2_get_molecule_species(GCMCHandle handle, int mol_idx) {
+    auto sim = static_cast<GCMCSimulationV2*>(handle);
+    if (mol_idx < 0 || mol_idx >= static_cast<int>(sim->molecules.size())) return 0;
+    return sim->molecules[mol_idx].species_id;
+}
+

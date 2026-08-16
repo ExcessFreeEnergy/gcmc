@@ -133,6 +133,50 @@ class CdftFluidEnv:
         }
         return obs, reward, terminated, truncated, info
 
+    @property
+    def target_filling(self):
+        return float(self._c_env.target_theta)
+
+    @target_filling.setter
+    def target_filling(self, value):
+        self._c_env.target_theta = float(value)
+
+    @property
+    def density_profile(self):
+        return np.array(self._c_env.rho, dtype=np.float32)
+
+    @property
+    def charge_profile(self):
+        return np.array(self._c_env.charge_n, dtype=np.float32)
+
+    @property
+    def current_filling(self):
+        return float(np.mean(self.density_profile) / 0.0333)
+
+    @property
+    def phi_0(self):
+        return float(self._c_env.phi0)
+
+    @phi_0.setter
+    def phi_0(self, val):
+        self._c_env.phi0 = float(val)
+
+    @property
+    def mode_m(self):
+        return float(self._c_env.mode_m)
+
+    @mode_m.setter
+    def mode_m(self, val):
+        self._c_env.mode_m = float(val)
+
+    @property
+    def v_bias(self):
+        return float(self._c_env.v_bias)
+
+    @v_bias.setter
+    def v_bias(self, val):
+        self._c_env.v_bias = float(val)
+
     def render(self):
         _clib.c_render(ctypes.byref(self._c_env))
 

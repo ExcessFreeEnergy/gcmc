@@ -87,10 +87,12 @@ _lib.gcmc_v2_get_number1.argtypes = [c_void_p]
 _lib.gcmc_v2_get_number1.restype = c_int
 
 _lib.gcmc_v2_get_number2.argtypes = [c_void_p]
-_lib.gcmc_v2_get_number2.restype = c_int
-
 _lib.gcmc_v2_run.argtypes = [c_void_p]
 _lib.gcmc_v2_run_no_energy.argtypes = [c_void_p]
+_lib.gcmc_v2_step.argtypes = [c_void_p]
+_lib.gcmc_v2_get_site_pos.argtypes = [c_void_p, c_int, c_int, POINTER(c_double), POINTER(c_double), POINTER(c_double)]
+_lib.gcmc_v2_get_molecule_species.argtypes = [c_void_p, c_int]
+_lib.gcmc_v2_get_molecule_species.restype = c_int
 
 # CUDA batch definitions
 class CUDAPairParams(Structure):
@@ -417,6 +419,19 @@ class GCMCSimulationV2:
 
     def run_simulation_no_energy(self):
         _lib.gcmc_v2_run_no_energy(self.handle)
+
+    def step(self):
+        _lib.gcmc_v2_step(self.handle)
+
+    def get_site_pos(self, mol_idx, site_idx=0):
+        x = c_double(0.0)
+        y = c_double(0.0)
+        z = c_double(0.0)
+        _lib.gcmc_v2_get_site_pos(self.handle, mol_idx, site_idx, ctypes.byref(x), ctypes.byref(y), ctypes.byref(z))
+        return (x.value, y.value, z.value)
+
+    def get_molecule_species(self, mol_idx):
+        return _lib.gcmc_v2_get_molecule_species(self.handle, mol_idx)
 
 
 def run_batch_cuda(configs, num_steps=1000, equilibration_steps=200, seed=12345):

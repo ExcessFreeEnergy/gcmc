@@ -125,10 +125,28 @@ Run a simulation from any directory containing an `input.yaml` file:
 # Default: runs on high-performance v2 engine (C++/CUDA)
 gcmc -in path/to/simulation_dir
 
+# Launch interactive 3D Raylib GUI with orbit camera & live parameter sliders
+gcmc -in path/to/simulation_dir --interactive
+
 # Explicitly choose engine
 gcmc -in path/to/simulation_dir --engine v2
 gcmc -in path/to/simulation_dir --engine v1
 ```
+
+### Interactive Raylib UI
+
+Launch game-like 3D/2D graphical interfaces with real-time parameter tweaking:
+
+```bash
+# 1. 3D Molecular Simulation (SPC/E Water, ABC Dipoles, RPM Electrolyte)
+gcmc -in tests/v1/test_configs/dipole_fast --interactive
+
+# 2. 2D/3D cDFT Fluid Manipulation & Active RL Control
+python -m gcmc.envs.train_pufferl --interactive
+```
+- **3D Molecular Controls**: Orbit camera (`Left Click + Drag`), zoom (`Mouse Wheel`), play/pause, step once, live chemical potential ($\mu$) and temperature ($T$) sliders, and real-time $N(t)$ and $U(t)$ convergence graphs.
+- **cDFT Active Control**: Slit pore density profile $\rho(z)$ with meniscus rendering, applied voltage sliders ($\phi_0, m, V_{\rm bias}, \theta^*$), and interactive switching between **Manual Human Control** and **Trained RL Policy Control**.
+
 
 ### Python API
 

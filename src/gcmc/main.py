@@ -23,6 +23,11 @@ def cli(argv=None):
         required=False, type=str, choices=["v2", "v1"], default="v2",
         help="Simulation engine: 'v2' (high-performance C++/CUDA, default) or 'v1' (Python baseline).",
     )
+    parser.add_argument(
+        "-i", "--interactive",
+        action="store_true", default=False,
+        help="Launch interactive 3D Raylib GUI for real-time visualization and parameter tuning.",
+    )
     args = parser.parse_args(argv)
 
     input_folder = args.input_folder
@@ -33,6 +38,15 @@ def cli(argv=None):
 
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
+
+    if args.interactive:
+        try:
+            from gcmc.ui import launch_interactive_gcmc
+            print(f"[gcmc] Launching 3D Interactive UI for '{input_folder}'...")
+            return launch_interactive_gcmc(config, folder=input_folder)
+        except Exception as e:
+            print(f"Error launching interactive UI: {e}", file=sys.stderr)
+            sys.exit(1)
 
     if args.engine == "v2":
         try:

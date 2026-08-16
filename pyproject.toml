@@ -24,6 +24,10 @@ dev = [
     "pytest>=7.4.0",
     "pytest-benchmark>=4.0.0",
     "matplotlib>=3.7.0",
+    "raylib>=6.0.0",
+]
+ui = [
+    "raylib>=6.0.0",
 ]
 mpi = [
     "mpi4py>=3.1.0",
@@ -33,6 +37,8 @@ mpi = [
 gcmc = "gcmc.main:cli"
 gcmc-v2 = "gcmc.main:cli"
 gcmc-v1 = "gcmc.v1.main:cli"
+gcmc-ui = "gcmc.ui.raylib_gcmc_viewer:cli"
+cdft-ui = "gcmc.ui.raylib_cdft_viewer:cli"
 
 [tool.setuptools.packages.find]
 where = ["src"]

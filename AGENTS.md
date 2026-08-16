@@ -90,7 +90,11 @@ gcmc/
 │       │   ├── cuda_gcmc_kernels.cu    # CUDA GPU batched GCMC kernels
 │       │   ├── c_api.h/cpp             # C-ABI export symbols
 │       │   ├── bindings.py             # Python ctypes wrapper & GCMCSimulationV2 class
-│       │   └── libgcmc_v2.so           # Compiled shared library
+│       │   ├── libgcmc_v2.so           # Compiled shared library
+│       ├── ui/                         # Raylib interactive 3D/2D UI module
+│       │   ├── widgets.py              # Immediate-mode scientific UI components
+│       │   ├── raylib_gcmc_viewer.py   # 3D GCMC molecular viewer with orbit camera
+│       │   └── raylib_cdft_viewer.py   # 2D/3D cDFT slit pore fluid manipulation & RL viewer
 │       └── envs/                       # RL fluid manipulation environments
 │           ├── cdft_puffer/            # PufferLib C environment for cDFT control
 │           │   ├── cdft_env.h/c        # Zero-copy C ocean environment
@@ -101,6 +105,8 @@ gcmc/
     ├── conftest.py                     # Test runner fixtures
     ├── test_engine_parity.py           # 1:1 Parity tests comparing v1 vs v2 & CUDA GPU
     ├── test_cdft_puffer_env.py         # PufferLib environment verification
+    ├── test_interactive_ui.py          # Interactive UI component validation
+    ├── compare_with_online_data.py     # Comparison against published dataset
     ├── v1/                             # Baseline regression tests
     └── v2/                             # Performance benchmarks
         └── benchmark_v1_vs_v2.py       # Empirical benchmark measuring speedups

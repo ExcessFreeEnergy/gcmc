@@ -158,11 +158,27 @@ def train_cdft_puffer(
     return policy
 
 
+CdftPolicy = CdftContinuousPolicy
+
+
+def save_policy_checkpoint(policy, path="cdft_policy.pt"):
+    torch.save(policy.state_dict(), path)
+    print(f"[PuffeRL] Saved policy checkpoint to '{path}'")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PuffeRL vectorized training for cDFT fluid manipulation.")
     parser.add_argument("--num_envs", type=int, default=128, help="Number of parallel environments.")
     parser.add_argument("--total_timesteps", type=int, default=100000, help="Total environment timesteps.")
     parser.add_argument("--lr", type=float, default=3e-4, help="Learning rate.")
+    parser.add_argument("--save_path", type=str, default="cdft_policy.pt", help="Path to save trained policy checkpoint.")
+    parser.add_argument("-i", "--interactive", action="store_true", default=False, help="Launch interactive Raylib UI.")
     args = parser.parse_args()
 
-    train_cdft_puffer(num_envs=args.num_envs, total_timesteps=args.total_timesteps, learning_rate=args.lr)
+    if args.interactive:
+        from gcmc.ui import launch_interactive_cdft_rl
+        launch_interactive_cdft_rl(policy_path=args.save_path if os.path.exists(args.save_path) else None)
+    else:
+        policy = train_cdft_puffer(num_envs=args.num_envs, total_timesteps=args.total_timesteps, learning_rate=args.lr)
+        save_policy_checkpoint(policy, args.save_path)
+
