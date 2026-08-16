@@ -35,6 +35,9 @@ class CdftContinuousPolicy(nn.Module):
             nn.Linear(hidden_dim, 1),
         )
 
+    def forward(self, obs):
+        return self.actor(obs)
+
     def get_action_and_value(self, obs, action=None):
         mean = self.actor(obs)
         std = torch.exp(self.log_std)

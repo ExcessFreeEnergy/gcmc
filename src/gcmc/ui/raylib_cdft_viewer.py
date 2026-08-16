@@ -77,8 +77,7 @@ class CDFTInteractiveViewer:
             import torch
             with torch.no_grad():
                 obs_t = torch.tensor(self.obs, dtype=torch.float32).unsqueeze(0)
-                mean, _, _ = self.policy(obs_t)
-                action = mean.squeeze(0).numpy()
+                action = self.policy(obs_t).squeeze(0).numpy()
                 # Update UI sliders from agent action
                 self.phi_0 = float(self.env.phi_0 + action[0] * 2.0)
                 self.mode_m = float(np.clip(round(self.env.mode_m + action[1]), 1, 4))
