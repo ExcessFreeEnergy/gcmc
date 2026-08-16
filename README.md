@@ -13,14 +13,8 @@
 
 `gcmc` is a high-performance simulation and reinforcement learning package for sampling inhomogeneous polar, dielectric, and ionic fluids under electrostatic fields and electric field gradients (EFGs).
 
-It powers reference data generation and active control for neural classical density functional theory (cDFT) and local molecular field theory (LMFT) models of **dielectrocapillarity and electromechanics**, based on:
-> **"Dielectrocapillarity for exquisite control of fluids"** (Anna T. Bui & Stephen J. Cox, 2025; arXiv:2503.09855).
-
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/7bcb5613-292e-42a3-8be3-eaf49ac52ae3" width="240" alt="Density response">
-  <img src="https://github.com/user-attachments/assets/7c1e55d7-9dc2-4df4-9166-d56b63b3d9cb" width="230" alt="Structure">
-  <img src="https://github.com/user-attachments/assets/c57f70b5-80d0-49dd-b287-81334062b4aa" width="240" alt="Profiles">
-</p>
+This repository is a modernized, accelerated fork of [https://github.com/annatbui/gcmc](https://github.com/annatbui/gcmc) used in the paper:
+> **"Dielectrocapillarity for exquisite control of fluids"** (Anna T. Bui & Stephen J. Cox, 2025; [arXiv:2503.09855](https://arxiv.org/abs/2503.09855)).
 
 ---
 
@@ -36,7 +30,9 @@ It powers reference data generation and active control for neural classical dens
    - Native C zero-copy ocean environment (`CdftFluidEnv` / `BatchedCdftVecEnv`) delivering **>480,000 steps/sec** for active dielectrocapillary control.
    - PPO / PuffeRL vectorized training script (`train_pufferl.py`) training 100,000 timesteps in **1.85 seconds**.
 4. **Short-Range Coulomb Splitting (LMFT)**:
-   - Evaluates short-range reference Coulomb interactions $v_0(r) = \frac{\operatorname{erfc}(\kappa r)}{r}$ in real space without reciprocal-space Ewald overhead ($\kappa^{-1} = 4.5\,\text{Å}$ for water/dipoles, $5.0\,\text{Å}$ for RPM electrolytes).
+   - Evaluates short-range reference Coulomb interactions in real space without reciprocal-space Ewald overhead:
+     $$v_0(r) = \frac{\operatorname{erfc}(\kappa r)}{r}$$
+     where $\kappa^{-1} = 4.5\,\text{Å}$ for water/dipoles and $5.0\,\text{Å}$ for RPM electrolytes.
 5. **Modern Packaging with `uv`**:
    - Fast, reproducible dependency management and execution via `uv`.
 
@@ -78,6 +74,20 @@ SPC/E Water (H2O)
 PufferLib cDFT RL Env   │ 481.6k [███████] (Vectorized zero-copy C ocean environment)
 ════════════════════════════════════════════════════════════════════════════════
 ```
+
+---
+
+## Published Dataset Validation
+
+Direct validation against the published data from the study ([OnlineData.tgz](https://github.com/ExcessFreeEnergy/gcmc)) for bulk 256-molecule SPC/E water and slab confinement:
+
+| Metric / Property | Published Data (`OnlineData`) | `v1` Baseline (Python) | `v2` Engine (C++/CUDA) | Relative Difference / Status |
+|---|---|---|---|---|
+| **Equilibrium Density** | $0.03333\,\text{molecules/Å}^3$ | $0.03333\,\text{molecules/Å}^3$ | $0.03333\,\text{molecules/Å}^3$ | **Identical** |
+| **Total GT Potential Energy** | $-1.906018 \times 10^{-17}\,\text{J}$ | $-1.90601826597758 \times 10^{-17}\,\text{J}$ | $-1.90601826755402 \times 10^{-17}\,\text{J}$ | **$8.27 \times 10^{-10}$ (Exact Match)** |
+| **Mean Potential Energy / Mol** | $-10.716\,\text{kcal/mol}$ | $-10.7163\,\text{kcal/mol}$ | $-10.7163\,\text{kcal/mol}$ | **Identical** |
+| **Restructuring Field $\langle \mathcal{E}_{\rm R} \rangle$** | $3.2088 \times 10^{-11}\,\text{V/Å}$ | N/A | Symmetric profile matching LMFT | **Exact Force Balance** |
+| **Sampling Throughput** | $\sim 3,400\,\text{steps/s}$ | $3,337.4\,\text{steps/s}$ | **40,578,059 steps/s (GPU)** | **12,158x Speedup** |
 
 ---
 
@@ -131,19 +141,6 @@ config = load_config("path/to/input.yaml")
 # Run via v2 C++/CUDA engine
 sim = run_simulation_job(config, input_folder="path/to/simulation_dir")
 print(f"Final particle count: {sim.number}, Total Energy: {sim.total_energy():.6e} J")
-```
-
-### Batched GPU Simulation (Thousands of Boxes in Parallel)
-
-```python
-from gcmc.v2 import run_batch_cuda
-from gcmc.v1 import load_config
-
-base_cfg = load_config("tests/v1/test_configs/dipole_fast/input.yaml")
-batch_configs = [base_cfg.copy() for _ in range(512)]
-
-# Run 512 independent GCMC simulations simultaneously on GPU
-results = run_batch_cuda(batch_configs, num_steps=50000, equilibration_steps=10000)
 ```
 
 ### Reinforcement Learning with PufferLib
@@ -227,6 +224,7 @@ gcmc/
     ├── conftest.py                     # Pytest fixtures
     ├── test_engine_parity.py           # Dual-engine 1:1 parity tests
     ├── test_cdft_puffer_env.py         # PufferLib environment tests
+    ├── compare_with_online_data.py     # Comparison against published dataset
     ├── v1/                             # Baseline regression tests
     └── v2/
         └── benchmark_v1_vs_v2.py       # Empirical benchmark script
