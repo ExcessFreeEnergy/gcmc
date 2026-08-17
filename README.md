@@ -136,7 +136,7 @@ uv run gcmc -in tests/v1/test_configs/h2o_fast --engine v2
 # Simulates 3-site SPC/E water molecules at 700 K with short-range Gaussian-truncated electrostatics (kappa^-1 = 4.5 A) and grand canonical insertion/deletion.
 ```
 
-### Reinforcement Learning with PufferLib
+### Closed-loop control system with RL
 
 Inspired by the theoretical proposals for programmable fluid control and neuromorphic nanofluidics in **Bui & Cox (2025)**:
 
@@ -156,7 +156,7 @@ While the paper explores static equilibrium isotherms under fixed electric field
 uv run python -m gcmc.envs.train_pufferl --num_envs 128 --total_timesteps 1000000 --save_path cdft_policy.pt
 ```
 
-### Interactive Raylib UI (`cdft-ui`)
+#### Interactive Raylib UI (`cdft-ui`)
 
 Launch the real-time Raylib graphical dashboard to visualize the slit pore meniscus, density profiles $\rho(z)$, electrostatic potential $\phi(z)$, and watch the trained neural agent actively control the applied fields:
 
@@ -167,17 +167,9 @@ uv run cdft-ui --policy cdft_policy.pt
 
 **Controls**:
 - **Slit Pore Meniscus**: Live colormap of liquid condensation and electric field lines in a 75 Å slit.
-- **Dielectrocapillarity Sliders**: Voltage amplitude $\phi_0$ ($-38.2\,\text{V}$ to $+38.2\,\text{V}$), spatial mode $m$ ($1$ to $4$), DC bias $V_{\rm bias}$, and target filling fraction $\theta^*$.
+- **Dielectrocapillarity Sliders**: Voltage amplitude $\phi_0$ ($-50.0\,\text{V}$ to $+50.0\,\text{V}$), spatial mode $m$ ($1$ to $4$), DC bias $V_{\rm bias}$ ($-20.0\,\text{V}$ to $+20.0\,\text{V}$), and target filling fraction $\theta^*$.
 - **Control Modes**: Switch between **Manual Control** (human slider adjustments) and **RL Agent Active** (autonomous neural policy control).
-
-### Post-Process & Density Profiles
-
-```python
-from gcmc.v1.utils.get_density_profile import read_extended_xyz, average_density_profiles
-
-positions_list, lattice_vectors_list = read_extended_xyz("output.xyz.gz")
-bin_centers, avg_density = average_density_profiles(positions_list, lattice_vectors_list, bins=100)
-```
+- **Harmonic Mode Lock**: Toggle manual override to lock spatial mode $m$ while the agent stabilizes target filling.
 
 ---
 
