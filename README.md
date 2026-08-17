@@ -11,7 +11,7 @@
 
 ## Overview
 
-`gcmc` is a high-performance simulation and reinforcement learning package for sampling inhomogeneous polar, dielectric, and ionic fluids under electrostatic fields and electric field gradients (EFGs).
+`gcmc` is a high-performance simulation and reinforcement learning package to sample inhomogeneous polar, dielectric, and ionic fluids under electrostatic fields and electric field gradients (EFGs).
 
 This repository is a modernized, accelerated fork of [https://github.com/annatbui/gcmc](https://github.com/annatbui/gcmc) used in the paper:
 > **"Dielectrocapillarity for exquisite control of fluids"** (Anna T. Bui & Stephen J. Cox, 2025; [arXiv:2503.09855](https://arxiv.org/abs/2503.09855)).
@@ -22,26 +22,26 @@ This repository is a modernized, accelerated fork of [https://github.com/annatbu
 
 1. **Dual-Engine Architecture with 1:1 Parity**:
    - **`v2` Engine (Default)**: Highly optimized C++/CUDA accelerated engine with batched GPU execution, Xoroshiro128+ RNG, and direct zero-copy C data structures.
-   - **`v1` Engine (Reference)**: Pure Python/NumPy implementation maintaining 100% 1:1 mathematical backwards compatibility ($< 10^{-13}$ relative error).
+   - **`v1` Engine (Reference)**: Pure Python/NumPy implementation that maintains 100% 1:1 mathematical backwards compatibility ($< 10^{-13}$ relative error).
 2. **Massive GPU Acceleration (38,000x Speedup)**:
    - Up to **38,598x faster** than the Python baseline on modern NVIDIA GPUs (RTX 4090).
    - Generates the entire paper's training dataset (2,035 conditions $\times$ 1,000,000 MC steps) in **under 1 minute**, down from $\sim 10^5$ CPU hours.
 3. **PufferLib Reinforcement Learning Environment & Interactive UI**:
-   - Native C zero-copy ocean environment (`CdftFluidEnv` / `BatchedCdftVecEnv`) delivering **>480,000 steps/sec** for active dielectrocapillary control.
-   - Vectorized PPO training loop (`train_pufferl.py`) training 1,000,000 continuous timesteps on GPU in **18 seconds**.
+   - Native C zero-copy ocean environment (`CdftFluidEnv` / `BatchedCdftVecEnv`) that delivers **>480,000 steps/sec** for active dielectrocapillary control.
+   - Vectorized PPO loop (`train_pufferl.py`) that trains 1,000,000 continuous timesteps on GPU in **18 seconds**.
    - Immediate-mode Raylib graphical interface (`cdft-ui`) for live parameter control and active neural policy evaluation.
 4. **Short-Range Coulomb Splitting (LMFT)**:
    - Evaluates short-range reference Coulomb interactions in real space without reciprocal-space Ewald overhead:
      $$v_0(r) = \frac{\text{erfc}(\kappa r)}{r}$$
      where $\kappa^{-1} = 4.5\text{ Å}$ for water/dipoles and $5.0\text{ Å}$ for RPM electrolytes.
-5. **Modern Packaging with `uv`**:
+5. **Modern Package Management with `uv`**:
    - Fast, reproducible dependency management and execution via `uv`.
 
 ---
 
 ## Performance Benchmarks
 
-Measured on local workstation with NVIDIA GeForce RTX 4090 GPU (24 GB VRAM, 16,384 CUDA cores):
+Performance measurements on a local workstation with an NVIDIA GeForce RTX 4090 GPU (24 GB VRAM, 16,384 CUDA cores):
 
 | Model / Fluid System | `v1` Baseline (Python) | `v2` CPU (C++) | `v2` CUDA (RTX 4090) | Speedup (CUDA vs `v1`) | Full Paper Dataset (2,035 Runs $\times$ 1M Steps) |
 |---|---|---|---|---|---|
@@ -61,14 +61,14 @@ Direct validation against the published data from the study ([OnlineData.tgz](ht
 | **Equilibrium Density** | $0.03333\,\text{molecules/Å}^3$ | $0.03333\,\text{molecules/Å}^3$ | $0.03333\,\text{molecules/Å}^3$ | **Identical** |
 | **Total GT Potential Energy** | $-1.906018 \times 10^{-17}\,\text{J}$ | $-1.90601826597758 \times 10^{-17}\,\text{J}$ | $-1.90601826755402 \times 10^{-17}\,\text{J}$ | **$8.27 \times 10^{-10}$ (Exact Match)** |
 | **Mean Potential Energy / Mol** | $-10.716\,\text{kcal/mol}$ | $-10.7163\,\text{kcal/mol}$ | $-10.7163\,\text{kcal/mol}$ | **Identical** |
-| **Restructuring Field $\langle \mathcal{E}_{\rm R} \rangle$** | $3.2088 \times 10^{-11}\,\text{V/Å}$ | N/A | Symmetric profile matching LMFT | **Exact Force Balance** |
-| **Sampling Throughput** | $\sim 3,400\,\text{steps/s}$ | $3,337.4\,\text{steps/s}$ | **40,578,059 steps/s (GPU)** | **12,158x Speedup** |
+| **Restructuring Field $\langle \mathcal{E}_{\rm R} \rangle$** | $3.2088 \times 10^{-11}\,\text{V/Å}$ | N/A | Symmetric profile that matches LMFT | **Exact Force Balance** |
+| **Throughput** | $\sim 3,400\,\text{steps/s}$ | $3,337.4\,\text{steps/s}$ | **40,578,059 steps/s (GPU)** | **12,158x Speedup** |
 
 ---
 
 ## Installation & Setup
 
-This repository is built with Python 3.10+, native C/C++, CUDA 12.0+, and managed via [`uv`](https://github.com/astral-sh/uv).
+This repository uses Python 3.10+, native C/C++, CUDA 12.0+, and [`uv`](https://github.com/astral-sh/uv).
 
 ### System Prerequisites
 - **C/C++ Compiler**: `gcc` / `g++` 11+
@@ -90,7 +90,7 @@ uv pip install -e ".[ui,dev]"
 uv pip install torch
 ```
 
-### 3. Compiling Shared C/CUDA Libraries
+### 3. Compile Shared C/CUDA Libraries
 
 1. **GCMC `v2` C++/CUDA Simulation Engine (`libgcmc_v2.so`)**:
    ```bash
@@ -113,7 +113,7 @@ uv pip install torch
 
 ### Command Line Interface (CLI)
 
-Run a GCMC simulation from any directory containing an `input.yaml` file:
+Run a GCMC simulation from any directory that contains an `input.yaml` file:
 
 ```bash
 # Default: runs on high-performance v2 engine (C++/CUDA)
@@ -129,7 +129,7 @@ gcmc -in path/to/simulation_dir --engine v1
 ```bash
 # 1. Neutral Stockmayer Dipole Fluid in an Inhomogeneous Cosine Potential
 uv run gcmc -in tests/v1/test_configs/dipole_fast --engine v2
-# Runs MC steps on dipolar molecules subjected to a multi-harmonic electrostatic field phi(z) and repulsive 9-3 slit walls, calculating equilibrium particle density.
+# Runs MC steps on dipolar molecules subjected to a multi-harmonic electrostatic field phi(z) and repulsive 9-3 slit walls, to calculate equilibrium particle density.
 
 # 2. SPC/E Water Model with Screened Coulomb Interactions
 uv run gcmc -in tests/v1/test_configs/h2o_fast --engine v2
@@ -144,10 +144,10 @@ Inspired by the theoretical proposals for programmable fluid control and neuromo
 >
 > *"A natural possible progression from this work is to augment our first-principles framework for electromechanics with dynamical extensions... opening a promising route toward a microscopic understanding of how EFGs impact non-equilibrium processes."*
 
-#### How We Realized It:
-While the paper explored static equilibrium isotherms under fixed electric fields, we extended this framework into an active, real-time closed-loop control system:
+#### How I Realize It:
+While the paper explores static equilibrium isotherms under fixed electric fields, I extend this framework into an active, real-time closed-loop control system:
 - **Zero-Copy C Ocean Environment (`cdft_env.c`)**: High-throughput vectorized simulation of slit-pore dielectrocapillarity and density functional relaxation.
-- **Continuous Actor-Critic Policy**: Gaussian policy trained via PPO to dynamically modulate applied voltage amplitudes ($\phi_0$), spatial harmonic modes ($m$), and DC bias offsets ($V_{\rm bias}$) to target and stabilize pore filling fractions ($\theta^*$).
+- **Continuous Actor-Critic Policy**: Gaussian policy that trains via PPO to dynamically modulate applied voltage amplitudes ($\phi_0$), spatial harmonic modes ($m$), and DC bias offsets ($V_{\rm bias}$) to target and stabilize pore filling fractions ($\theta^*$).
 
 #### Training Command:
 
@@ -170,7 +170,7 @@ uv run cdft-ui --policy cdft_policy.pt
 - **Dielectrocapillarity Sliders**: Voltage amplitude $\phi_0$ ($-38.2\,\text{V}$ to $+38.2\,\text{V}$), spatial mode $m$ ($1$ to $4$), DC bias $V_{\rm bias}$, and target filling fraction $\theta^*$.
 - **Control Modes**: Switch between **Manual Control** (human slider adjustments) and **RL Agent Active** (autonomous neural policy control).
 
-### Post-Processing & Density Profiles
+### Post-Process & Density Profiles
 
 ```python
 from gcmc.v1.utils.get_density_profile import read_extended_xyz, average_density_profiles
@@ -181,7 +181,7 @@ bin_centers, avg_density = average_density_profiles(positions_list, lattice_vect
 
 ---
 
-## Testing & Verification
+## Test & Verification
 
 Run the automated test suite:
 
@@ -189,13 +189,13 @@ Run the automated test suite:
 uv run pytest tests/ -v
 ```
 
-All 29 automated tests execute in **~6 seconds**, validating:
+All 29 automated tests execute in **~6 seconds** to validate:
 - Exact 1:1 mathematical energy equivalence between `v1` and `v2`.
 - Numerical invariance under 3D quaternion molecular rotations.
-- Dual-engine trajectory streaming and gzip compression.
+- Dual-engine trajectory stream and gzip compression.
 - CUDA batched multi-box simulation on NVIDIA GPU.
 - Zero-copy C PufferLib environment step, reset, and observation dynamics.
-- Immediate-mode UI widget logic and CLI argument parsing.
+- Immediate-mode UI widget logic and CLI arguments.
 
 ---
 
