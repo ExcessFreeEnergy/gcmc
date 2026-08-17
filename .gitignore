@@ -41,3 +41,6 @@ density_x.dat
 # Raw data
 data/online_data/
 tests/online_data_test_run/
+AGENTS.md
+*.pt
+

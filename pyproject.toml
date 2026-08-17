@@ -37,7 +37,6 @@ mpi = [
 gcmc = "gcmc.main:cli"
 gcmc-v2 = "gcmc.main:cli"
 gcmc-v1 = "gcmc.v1.main:cli"
-gcmc-ui = "gcmc.ui.raylib_gcmc_viewer:cli"
 cdft-ui = "gcmc.ui.raylib_cdft_viewer:cli"
 
 [tool.setuptools.packages.find]

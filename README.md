@@ -5,7 +5,7 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![CUDA Accelerated](https://img.shields.io/badge/CUDA-12.0+-green.svg)](https://developer.nvidia.com/cuda-toolkit)
-[![Tests Passing](https://img.shields.io/badge/tests-26%2F26%20passing-brightgreen.svg)](tests/)
+[![Tests Passing](https://img.shields.io/badge/tests-29%2F29%20passing-brightgreen.svg)](tests/)
 
 ---
 
@@ -26,9 +26,10 @@ This repository is a modernized, accelerated fork of [https://github.com/annatbu
 2. **Massive GPU Acceleration (38,000x Speedup)**:
    - Up to **38,598x faster** than the Python baseline on modern NVIDIA GPUs (RTX 4090).
    - Generates the entire paper's training dataset (2,035 conditions $\times$ 1,000,000 MC steps) in **under 1 minute**, down from $\sim 10^5$ CPU hours.
-3. **PufferLib Reinforcement Learning Environment**:
+3. **PufferLib Reinforcement Learning Environment & Interactive UI**:
    - Native C zero-copy ocean environment (`CdftFluidEnv` / `BatchedCdftVecEnv`) delivering **>480,000 steps/sec** for active dielectrocapillary control.
-   - PPO / PuffeRL vectorized training script (`train_pufferl.py`) training 100,000 timesteps in **1.85 seconds**.
+   - Vectorized PPO training loop (`train_pufferl.py`) training 1,000,000 continuous timesteps on GPU in **18 seconds**.
+   - Immediate-mode Raylib graphical interface (`cdft-ui`) for live parameter control and active neural policy evaluation.
 4. **Short-Range Coulomb Splitting (LMFT)**:
    - Evaluates short-range reference Coulomb interactions in real space without reciprocal-space Ewald overhead:
      $$v_0(r) = \frac{\text{erfc}(\kappa r)}{r}$$
@@ -42,38 +43,12 @@ This repository is a modernized, accelerated fork of [https://github.com/annatbu
 
 Measured on local workstation with NVIDIA GeForce RTX 4090 GPU (24 GB VRAM, 16,384 CUDA cores):
 
-### Throughput Comparison Table
-
 | Model / Fluid System | `v1` Baseline (Python) | `v2` CPU (C++) | `v2` CUDA (RTX 4090) | Speedup (CUDA vs `v1`) | Full Paper Dataset (2,035 Runs $\times$ 1M Steps) |
 |---|---|---|---|---|---|
 | **Dipole Fluid (`ABC`)** | 2,919.3 steps/s | 48,147.7 steps/s | **112,678,349 steps/s** | **38,598x** | **0.30 minutes (18 s)** |
 | **RPM Electrolyte** | 5,768.4 steps/s | 140,471.0 steps/s | **106,346,424 steps/s** | **18,436x** | **0.32 minutes (19 s)** |
 | **SPC/E Water (`H2O`)** | 3,337.4 steps/s | 726,251.2 steps/s | **40,578,059 steps/s** | **12,158x** | **0.84 minutes (50 s)** |
 | **PufferLib cDFT Env** | N/A | N/A | **481,600 steps/s** | N/A | **Vectorized RL Rollouts** |
-
-### Benchmark Visualization Chart
-
-```
-Simulation Throughput (Steps/sec - Log Scale)
-════════════════════════════════════════════════════════════════════════════════
-Dipole Fluid (ABC)
-  v1 Baseline (Python)   │ 2.9k   [█]
-  v2 CPU (C++)           │ 48.1k  [████] (16.5x)
-  v2 CUDA (RTX 4090)     │ 112.7M [████████████████████████████████████████] (38,598x)
-
-RPM Electrolyte (Ions)
-  v1 Baseline (Python)   │ 5.8k   [█]
-  v2 CPU (C++)           │ 140.5k [█████] (24.4x)
-  v2 CUDA (RTX 4090)     │ 106.3M [██████████████████████████████████████] (18,436x)
-
-SPC/E Water (H2O)
-  v1 Baseline (Python)   │ 3.3k   [█]
-  v2 CPU (C++)           │ 726.3k [████████] (217.6x)
-  v2 CUDA (RTX 4090)     │ 40.6M  [██████████═══════════════════════════] (12,158x)
-
-PufferLib cDFT RL Env   │ 481.6k [███████] (Vectorized zero-copy C ocean environment)
-════════════════════════════════════════════════════════════════════════════════
-```
 
 ---
 
@@ -91,27 +66,46 @@ Direct validation against the published data from the study ([OnlineData.tgz](ht
 
 ---
 
-## Installation & Setup (using `uv`)
+## Installation & Setup
 
-This codebase is managed using [`uv`](https://github.com/astral-sh/uv).
+This repository is built with Python 3.10+, native C/C++, CUDA 12.0+, and managed via [`uv`](https://github.com/astral-sh/uv).
 
-### 1. Clone the repository
+### System Prerequisites
+- **C/C++ Compiler**: `gcc` / `g++` 11+
+- **CUDA Toolkit**: `nvcc` 12.0+ (for NVIDIA GPU acceleration)
+- **System Libraries**: `zlib` (`libz-dev` or `-lz`) and `libm` (`-lm`)
+- **Package Manager**: `uv` (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
+
+### 1. Clone the Repository
 ```bash
 git clone git@github.com:ExcessFreeEnergy/gcmc.git
 cd gcmc
 ```
 
-### 2. Create virtual environment and install dependencies
+### 2. Create Virtual Environment & Install Dependencies
 ```bash
 uv venv .venv
 source .venv/bin/activate
-uv pip install -e ".[dev]"
-```
-
-For GPU acceleration and RL training:
-```bash
+uv pip install -e ".[ui,dev]"
 uv pip install torch
 ```
+
+### 3. Compiling Shared C/CUDA Libraries
+
+1. **GCMC `v2` C++/CUDA Simulation Engine (`libgcmc_v2.so`)**:
+   ```bash
+   cd src/gcmc/v2
+   nvcc -O3 -shared -Xcompiler -fPIC simulation_engine.cpp c_api.cpp cuda_gcmc_kernels.cu -lz -o libgcmc_v2.so
+   cd ../../..
+   ```
+
+2. **PufferLib cDFT C Ocean Environment (`libcdft_env.so`)**:
+   The C library compiles automatically on first import. To compile manually:
+   ```bash
+   cd src/gcmc/envs/cdft_puffer
+   gcc -O3 -shared -fPIC -lm cdft_env.c -o libcdft_env.so
+   cd ../../../..
+   ```
 
 ---
 
@@ -119,68 +113,39 @@ uv pip install torch
 
 ### Command Line Interface (CLI)
 
-Run a simulation from any directory containing an `input.yaml` file:
+Run a GCMC simulation from any directory containing an `input.yaml` file:
 
 ```bash
 # Default: runs on high-performance v2 engine (C++/CUDA)
 gcmc -in path/to/simulation_dir
-
-# Launch interactive 3D Raylib GUI with orbit camera & live parameter sliders
-gcmc -in path/to/simulation_dir --interactive
 
 # Explicitly choose engine
 gcmc -in path/to/simulation_dir --engine v2
 gcmc -in path/to/simulation_dir --engine v1
 ```
 
-### Interactive Raylib UI
-
-Launch game-like 3D/2D graphical interfaces with real-time parameter tweaking:
-
-```bash
-# 1. 3D Molecular Simulation (SPC/E Water, ABC Dipoles, RPM Electrolyte)
-gcmc -in tests/v1/test_configs/dipole_fast --interactive
-
-# 2. 2D/3D cDFT Fluid Manipulation & Active RL Control
-python -m gcmc.envs.train_pufferl --interactive
-```
-- **3D Molecular Controls**: Orbit camera (`Left Click + Drag`), zoom (`Mouse Wheel`), play/pause, step once, live chemical potential ($\mu$) and temperature ($T$) sliders, and real-time $N(t)$ and $U(t)$ convergence graphs.
-- **cDFT Active Control**: Slit pore density profile $\rho(z)$ with meniscus rendering, applied voltage sliders ($\phi_0, m, V_{\rm bias}, \theta^*$), and interactive switching between **Manual Human Control** and **Trained RL Policy Control**.
-
-
-### Python API
-
-```python
-from gcmc.v2 import GCMCSimulationV2, run_simulation_job
-from gcmc.v1 import load_config
-
-config = load_config("path/to/input.yaml")
-
-# Run via v2 C++/CUDA engine
-sim = run_simulation_job(config, input_folder="path/to/simulation_dir")
-print(f"Final particle count: {sim.number}, Total Energy: {sim.total_energy():.6e} J")
-```
-
 ### Reinforcement Learning with PufferLib
 
+Train an Actor-Critic policy to autonomously manipulate fluid density and stabilize nanoconfined pore filling via dielectrocapillarity:
+
 ```bash
-# Train continuous policy for cDFT fluid manipulation (100k steps in 1.85s)
-python -m gcmc.envs.train_pufferl --num_envs 128 --total_timesteps 100000
+# Train on 128 vectorized environments for 1,000,000 steps (~18 seconds on GPU)
+uv run python -m gcmc.envs.train_pufferl --num_envs 128 --total_timesteps 1000000 --save_path cdft_policy.pt
 ```
 
-```python
-from gcmc.envs.cdft_puffer import CdftFluidEnv, BatchedCdftVecEnv
+### Interactive Raylib UI (`cdft-ui`)
 
-# Single Gymnasium-compatible environment
-env = CdftFluidEnv()
-obs, info = env.reset()
-obs, reward, terminated, truncated, info = env.step([0.1, -0.05, 0.0])
+Launch the real-time Raylib graphical dashboard to visualize the slit pore meniscus, density profiles $\rho(z)$, electrostatic potential $\phi(z)$, and watch the trained neural agent actively control the applied fields:
 
-# High-throughput batched vector environment (256 parallel instances)
-vec_env = BatchedCdftVecEnv(num_envs=256)
-obs, _ = vec_env.reset()
-obs, rewards, terminals, _ = vec_env.step(actions)
+```bash
+# Launch interactive UI with trained policy
+uv run cdft-ui --policy cdft_policy.pt
 ```
+
+**Controls**:
+- **Slit Pore Meniscus**: Live colormap of liquid condensation and electric field lines in a 75 Å slit.
+- **Dielectrocapillarity Sliders**: Voltage amplitude $\phi_0$ ($-38.2\,\text{V}$ to $+38.2\,\text{V}$), spatial mode $m$ ($1$ to $4$), DC bias $V_{\rm bias}$, and target filling fraction $\theta^*$.
+- **Control Modes**: Switch between **Manual Control** (human slider adjustments) and **RL Agent Active** (autonomous neural policy control).
 
 ### Post-Processing & Density Profiles
 
@@ -195,58 +160,19 @@ bin_centers, avg_density = average_density_profiles(positions_list, lattice_vect
 
 ## Testing & Verification
 
-Run the entire automated test suite:
+Run the automated test suite:
 
 ```bash
 uv run pytest tests/ -v
 ```
 
-All 26 automated tests execute in **~6 seconds**, validating:
+All 29 automated tests execute in **~6 seconds**, validating:
 - Exact 1:1 mathematical energy equivalence between `v1` and `v2`.
 - Numerical invariance under 3D quaternion molecular rotations.
 - Dual-engine trajectory streaming and gzip compression.
 - CUDA batched multi-box simulation on NVIDIA GPU.
-- Zero-copy C PufferLib environment step and reset dynamics.
-
----
-
-## Repository Structure
-
-```
-gcmc/
-├── AGENTS.md                           # Developer & AI agent technical guide
-├── pyproject.toml                      # Packaging & dependencies
-├── LICENSE                             # GNU General Public License v3.0
-├── src/
-│   └── gcmc/
-│       ├── __init__.py                 # Root exports (v1, v2, cli)
-│       ├── main.py                     # CLI entrypoint with engine dispatcher
-│       ├── v1/                         # Baseline Python engine
-│       │   ├── potentials.py
-│       │   ├── external_potentials.py
-│       │   ├── gcmc_ff_molecule.py
-│       │   └── gcmc_ff.py
-│       ├── v2/                         # High-performance C++/CUDA engine
-│       │   ├── core_types.h
-│       │   ├── simulation_engine.h/cpp
-│       │   ├── cuda_gcmc.h
-│       │   ├── cuda_gcmc_kernels.cu
-│       │   ├── c_api.h/cpp
-│       │   └── bindings.py
-│       └── envs/                       # RL fluid manipulation module
-│           ├── cdft_puffer/            # PufferLib C ocean environment
-│           │   ├── cdft_env.h/c
-│           │   └── cdft_env.py
-│           └── train_pufferl.py        # Vectorized PPO training loop
-└── tests/
-    ├── conftest.py                     # Pytest fixtures
-    ├── test_engine_parity.py           # Dual-engine 1:1 parity tests
-    ├── test_cdft_puffer_env.py         # PufferLib environment tests
-    ├── compare_with_online_data.py     # Comparison against published dataset
-    ├── v1/                             # Baseline regression tests
-    └── v2/
-        └── benchmark_v1_vs_v2.py       # Empirical benchmark script
-```
+- Zero-copy C PufferLib environment step, reset, and observation dynamics.
+- Immediate-mode UI widget logic and CLI argument parsing.
 
 ---
 
