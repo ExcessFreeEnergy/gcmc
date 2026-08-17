@@ -42,14 +42,14 @@ This repository is a modernized, accelerated fork of [https://github.com/annatbu
 
 Performance measurements on a local workstation with an NVIDIA GeForce RTX 4090 GPU (24 GB VRAM, 16,384 CUDA cores):
 
-| Model / System | Mode | `v1` Baseline (Python) | `v2` CPU (C++) | `v2` CUDA (RTX 4090) | Speedup (CUDA vs CPU) | Full Paper Dataset (2,035 Runs $\times$ 1M Steps) |
-|---|---|---|---|---|---|---|
-| **Dipole Fluid (`ABC`)** | **Short-Range (SR)** | 2,919.3 steps/s | 48,147.7 steps/s | **112,678,349 steps/s** | **2,340x (38,598x vs v1)** | **0.30 minutes (18 s)** |
-| **Dipole Fluid (`ABC`)** | **Long-Range Ewald (LR)** | N/A | 709.4 steps/s | **38,552.5 steps/s** | **54.3x** | **14.6 minutes** |
-| **RPM Electrolyte** | **Short-Range (SR)** | 5,768.4 steps/s | 180,385.1 steps/s | **27,640,027.5 steps/s** | **153.2x (18,436x vs v1)** | **1.22 minutes** |
-| **RPM Electrolyte** | **Long-Range Ewald (LR)** | N/A | 62,060.6 steps/s | **262,800.9 steps/s** | **4.2x** | **2.15 hours** |
-| **SPC/E Water (`H2O`)** | **Short-Range (SR)** | 3,337.4 steps/s | 726,251.2 steps/s | **40,578,059 steps/s** | **55.9x (12,158x vs v1)** | **0.84 minutes (50 s)** |
-| **PufferLib cDFT Env** | **Embedded LMFT** | N/A | N/A | **481,600 steps/s** | **Zero-Copy C Rollouts** | **Vectorized RL Rollouts** |
+| Model / System | Mode | `v1` Baseline (Python) | `v2` CPU (C++) | `v2` CUDA (RTX 4090) | Speedup (vs CPU) | Speedup (vs `v1`) | Full Paper Dataset (2,035 Runs $\times$ 1M Steps) |
+|---|---|---|---|---|---|---|---|
+| **Dipole Fluid (`ABC`)** | **Short-Range (SR)** | 2,919.3 steps/s | 48,147.7 steps/s | **112,678,349 steps/s** | **2,340x** | **38,598x** | **0.30 minutes (18 s)** |
+| **Dipole Fluid (`ABC`)** | **Long-Range Ewald (LR)** | N/A | 709.4 steps/s | **38,552.5 steps/s** | **54.3x** | N/A | **14.6 minutes** |
+| **RPM Electrolyte** | **Short-Range (SR)** | 5,768.4 steps/s | 180,385.1 steps/s | **27,640,027.5 steps/s** | **153.2x** | **18,436x** | **1.22 minutes** |
+| **RPM Electrolyte** | **Long-Range Ewald (LR)** | N/A | 62,060.6 steps/s | **262,800.9 steps/s** | **4.2x** | N/A | **2.15 hours** |
+| **SPC/E Water (`H2O`)** | **Short-Range (SR)** | 3,337.4 steps/s | 726,251.2 steps/s | **40,578,059 steps/s** | **55.9x** | **12,158x** | **0.84 minutes (50 s)** |
+| **PufferLib cDFT Env** | **Embedded LMFT** | N/A | N/A | **481,600 steps/s** | **Zero-Copy C** | N/A | **Vectorized RL Rollouts** |
 
 ---
 
@@ -231,19 +231,6 @@ By default, simulations run in high-throughput **Short-Range (SR)** mode (`>112M
 | **Restructuring Field Profile $\langle \mathcal{E}_{\rm R}(z) \rangle$** | Antisymmetric zero-net force | Antisymmetric $E_R(z)$ | Symmetrically screened | **Exact Force Balance** |
 | **Stillinger–Lovett Shift $\Delta\mu$** | $\Delta\mu = -\frac{2\pi\rho_b}{\kappa^2}$ | Implemented analytically in `lmft_baseline` | Evaluated directly via reciprocal $k$-sum | **Exact Analytical Equivalence** |
 | **Dielectrophoretic Condensation** | Condenses at field nodes $\sin(km z) = \pm 1$ | $c_1^{(1)}(z) \approx \frac{1}{2}\alpha\beta E_R(z)^2$ | $U_{\text{recip}}$ polarizes into field maxima | **Quadratic Scaling Confirmed** |
-
-#### Performance Benchmarks
-
-Measured on local workstation (NVIDIA GeForce RTX 4090 GPU, 24 GB VRAM, 16,384 CUDA cores):
-
-| Model / System | Mode | `v1` Baseline (Python) | `v2` CPU (C++) | `v2` CUDA (RTX 4090) | Speedup (CUDA vs CPU) | Speedup (CUDA vs `v1`) |
-|---|---|---|---|---|---|---|
-| **Dipole Fluid (`ABC`)** | **Short-Range (SR)** | 2,919.3 steps/s | 48,147.7 steps/s | **112,678,349 steps/s** | **2,340x** | **38,598x** |
-| **Dipole Fluid (`ABC`)** | **Long-Range Ewald (LR)** | N/A | 709.4 steps/s | **38,552.5 steps/s** | **54.3x** | N/A |
-| **RPM Electrolyte** | **Short-Range (SR)** | 5,768.4 steps/s | 180,385.1 steps/s | **27,640,027.5 steps/s** | **153.2x** | **18,436x** |
-| **RPM Electrolyte** | **Long-Range Ewald (LR)** | N/A | 62,060.6 steps/s | **262,800.9 steps/s** | **4.2x** | N/A |
-| **SPC/E Water (`H2O`)** | **Short-Range (SR)** | 3,337.4 steps/s | 726,251.2 steps/s | **40,578,059 steps/s** | **55.9x** | **12,158x** |
-| **PufferLib cDFT Env** | **Embedded LMFT** | N/A | N/A | **481,600 steps/s** | **Zero-Copy C Rollouts** | N/A |
 
 ### Closed-loop control system with RL
 
