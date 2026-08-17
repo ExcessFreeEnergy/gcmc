@@ -93,9 +93,9 @@ void c_step(CdftEnv* env) {
             v_wall += ((2.0f / 15.0f) * r3 * r3 * r3 - r3);
         }
 
-        // Dielectrocapillary coupling: body force ~ grad(E^2)
-        float c1_diel = 0.008f * (e_field * e_field);
-        float mu_eff = beta_mu - v_wall + c1_diel - 3.5f * (env->rho[i] - 0.5f);
+        // Dielectrocapillary coupling: body force ~ grad(E^2) produces spatial waves
+        float c1_diel = 0.020f * (e_field * e_field);
+        float mu_eff = beta_mu - v_wall + c1_diel - 2.8f * (env->rho[i] - 0.5f);
 
         // Fermi-Dirac / logistic density functional response: rho_eq in [0, 1]
         float exp_val = expf(clampf(-mu_eff, -15.0f, 15.0f));
@@ -112,9 +112,9 @@ void c_step(CdftEnv* env) {
     float tracking_error = fabsf(avg_theta - env->target_theta);
 
     // Smooth Reward Function: Quadratic tracking penalty + power penalty + precision bonus
-    float reward = -5.0f * (tracking_error * tracking_error) - 0.0001f * power_cost;
+    float reward = -8.0f * (tracking_error * tracking_error) - 0.0001f * power_cost;
 
-    if (tracking_error < 0.04f) {
+    if (tracking_error < 0.025f) {
         reward += 1.0f;
         env->log.score += 1.0f;
     }

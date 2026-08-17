@@ -104,11 +104,6 @@ class CDFTInteractiveViewer:
             action = np.array([d_phi, d_m, d_bias], dtype=np.float32)
             self.obs, reward, terminated, truncated, self.info = self.env.step(action)
 
-        if terminated or truncated:
-            cur_target = self.target_filling
-            self.obs, self.info = self.env.reset()
-            self.env.target_filling = cur_target
-
         self.history_rewards.append(float(reward))
         self.history_fillings.append(float(self.env.current_filling))
         if len(self.history_rewards) > self.history_len:
