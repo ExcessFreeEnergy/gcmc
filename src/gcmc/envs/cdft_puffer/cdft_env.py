@@ -151,7 +151,7 @@ class CdftFluidEnv:
 
     @property
     def current_filling(self):
-        return float(np.mean(self.density_profile) / 0.0333)
+        return float(np.mean(self.density_profile))
 
     @property
     def phi_0(self):

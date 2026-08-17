@@ -73,26 +73,32 @@ class CDFTInteractiveViewer:
             self.is_agent_controlled = False
 
     def step_simulation(self):
+        # Keep user target in sync with environment
+        self.env.target_filling = self.target_filling
+
         if self.is_agent_controlled and self.policy is not None:
             import torch
             with torch.no_grad():
                 obs_t = torch.tensor(self.obs, dtype=torch.float32).unsqueeze(0)
                 action = self.policy(obs_t).squeeze(0).numpy()
-                # Update UI sliders from agent action
-                self.phi_0 = float(self.env.phi_0 + action[0] * 2.0)
-                self.mode_m = float(np.clip(round(self.env.mode_m + action[1]), 1, 4))
-                self.v_bias = float(self.env.v_bias + action[2] * 1.0)
+                action = np.clip(action, -1.0, 1.0)
+            self.obs, reward, terminated, truncated, self.info = self.env.step(action)
+            # Update UI sliders from environment state
+            self.phi_0 = float(self.env.phi_0)
+            self.mode_m = float(round(self.env.mode_m))
+            self.v_bias = float(self.env.v_bias)
         else:
             # Action computed from manual slider adjustments
-            d_phi = (self.phi_0 - self.env.phi_0) / 2.0
-            d_m = float(self.mode_m - self.env.mode_m)
-            d_bias = float(self.v_bias - self.env.v_bias)
+            d_phi = float(np.clip((self.phi_0 - self.env.phi_0) / 4.0, -1.0, 1.0))
+            d_m = float(np.clip((self.mode_m - self.env.mode_m) / 0.5, -1.0, 1.0))
+            d_bias = float(np.clip((self.v_bias - self.env.v_bias) / 2.0, -1.0, 1.0))
             action = np.array([d_phi, d_m, d_bias], dtype=np.float32)
-
-        self.obs, reward, terminated, truncated, self.info = self.env.step(action)
+            self.obs, reward, terminated, truncated, self.info = self.env.step(action)
 
         if terminated or truncated:
+            cur_target = self.target_filling
             self.obs, self.info = self.env.reset()
+            self.env.target_filling = cur_target
 
         self.history_rewards.append(float(reward))
         self.history_fillings.append(float(self.env.current_filling))
