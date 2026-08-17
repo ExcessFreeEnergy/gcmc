@@ -78,6 +78,15 @@ void gcmc_v2_set_two_type_params(
     int nbins_x, int density_interval
 );
 
+void gcmc_v2_set_ewald(
+    GCMCHandle handle,
+    int mode,
+    double alpha,
+    int kmax,
+    double pref,
+    double q0, double q1, double q2
+);
+
 void gcmc_v2_set_seed(GCMCHandle handle, uint64_t seed);
 
 double gcmc_v2_total_energy(GCMCHandle handle);

@@ -61,24 +61,39 @@ void c_step(CdftEnv* env) {
     env->mode_m = clampf(env->mode_m + d_m, 1.0f, 4.0f);
     env->v_bias = clampf(env->v_bias + d_vbias, -20.0f, 20.0f);
 
-    // Fast Euler-Lagrange Picard cDFT Relaxation Step
+    // Fast Euler-Lagrange Picard cDFT Relaxation Step with exact LMFT restructuring
     float dz = env->L_slit / (float)CDFT_GRID_SIZE;
     float alpha = 0.30f; // Picard relaxation parameter
     float sum_rho = 0.0f;
     float power_cost = 0.0f;
+    float kappa = 1.0f / 4.5f; // Inverse screening length kappa = 1 / 4.5 A
 
     // Thermal reduced chemical potential
     float beta_mu = (env->mu + 3000.0f) / env->T;
 
+    // 1. Compute Fourier mode projection of charge profile n(z) for mode_m
+    float km = 2.0f * PI_F * env->mode_m / env->L_slit;
+    float n_km_re = 0.0f;
     for (int i = 0; i < CDFT_GRID_SIZE; ++i) {
         float z = (i + 0.5f) * dz;
-        float arg = 2.0f * PI_F * env->mode_m * z / env->L_slit;
+        n_km_re += env->charge_n[i] * cosf(km * z) * dz;
+    }
 
-        // External field: cosine wave potential + bias
-        float phi_z = env->phi0 * cosf(arg) + env->v_bias;
-        float e_field = (2.0f * PI_F * env->mode_m * env->phi0 / env->L_slit) * sinf(arg);
+    // 2. LMFT restructuring kernel in Fourier space: v1(k) = (4*pi / k^2) * exp(-k^2 / (4*kappa^2))
+    float km_sq = km * km;
+    float v1_km = (4.0f * PI_F / (km_sq + 1e-6f)) * expf(-km_sq / (4.0f * kappa * kappa));
+    float phi_restruct_amp = (2.0f / env->L_slit) * n_km_re * v1_km;
+    float phi_R_amp = env->phi0 + phi_restruct_amp;
 
-        power_cost += e_field * e_field * dz;
+    for (int i = 0; i < CDFT_GRID_SIZE; ++i) {
+        float z = (i + 0.5f) * dz;
+        float arg = km * z;
+
+        // Total restructured potential and field
+        float phi_R = phi_R_amp * cosf(arg) + env->v_bias;
+        float e_field_R = (km * phi_R_amp) * sinf(arg);
+
+        power_cost += e_field_R * e_field_R * dz;
 
         // 9-3 Wall confinement at boundaries
         float v_wall = 0.0f;
@@ -93,8 +108,8 @@ void c_step(CdftEnv* env) {
             v_wall += ((2.0f / 15.0f) * r3 * r3 * r3 - r3);
         }
 
-        // Dielectrocapillary coupling: body force ~ grad(E^2) + gate bias field shift
-        float c1_diel = 0.006f * (e_field * e_field);
+        // Dielectrocapillary coupling: c1_diel ~ |E_R|^2 + gate bias shift
+        float c1_diel = 0.006f * (e_field_R * e_field_R);
         float mu_eff = beta_mu - v_wall + c1_diel + 0.08f * env->v_bias - 2.8f * (env->rho[i] - 0.5f);
 
         // Fermi-Dirac / logistic density functional response: rho_eq in [0, 1]
@@ -103,7 +118,7 @@ void c_step(CdftEnv* env) {
 
         // Update density via Picard relaxation
         env->rho[i] = clampf((1.0f - alpha) * env->rho[i] + alpha * rho_eq, 0.001f, 0.999f);
-        env->charge_n[i] = clampf(-0.05f * phi_z * env->rho[i], -1.0f, 1.0f);
+        env->charge_n[i] = clampf(-0.05f * phi_R * env->rho[i], -1.0f, 1.0f);
 
         sum_rho += env->rho[i];
     }

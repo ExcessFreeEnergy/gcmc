@@ -202,6 +202,25 @@ void gcmc_v2_set_two_type_params(
     sim->density_output_interval = density_interval;
 }
 
+void gcmc_v2_set_ewald(
+    GCMCHandle handle,
+    int mode,
+    double alpha,
+    int kmax,
+    double pref,
+    double q0, double q1, double q2
+) {
+    auto sim = static_cast<GCMCSimulationV2*>(handle);
+    sim->electrostatics_mode = static_cast<ElectrostaticsMode>(mode);
+    sim->ewald_params.mode = sim->electrostatics_mode;
+    sim->ewald_params.alpha = alpha;
+    sim->ewald_params.kmax = kmax;
+    sim->ewald_params.prefactor = pref;
+    sim->site_charges[0] = q0;
+    sim->site_charges[1] = q1;
+    sim->site_charges[2] = q2;
+}
+
 void gcmc_v2_set_seed(GCMCHandle handle, uint64_t seed) {
     auto sim = static_cast<GCMCSimulationV2*>(handle);
     sim->rng.set_seed(seed);

@@ -32,6 +32,12 @@ struct CUDAExternalParams {
     float q_phi1, q_phi2, q_phi3, q_phi4;
 };
 
+constexpr int MAX_EWALD_K_VECTORS = 128;
+
+struct CUDAEwaldKVector {
+    float kx, ky, kz, weight;
+};
+
 struct CUDABoxConfig {
     int mol_type; // 0=NONE, 1=SINGLE, 2=TWO_TYPE, 3=ABC, 4=H2O
     float box_x, box_y, box_z;
@@ -41,6 +47,13 @@ struct CUDABoxConfig {
     float maxdispl;
     float prob_insert, prob_delete, prob_displace, prob_rotate, prob_mutate;
     float global_rc;
+
+    int electrostatics_mode; // 0=SR (default), 1=LR Ewald
+    float ewald_alpha;
+    float ewald_self_per_q2;
+    int num_k_vectors;
+    CUDAEwaldKVector k_vectors[MAX_EWALD_K_VECTORS];
+    float site_charges[3];
 
     CUDAPairParams pair_potentials[3][3];
     CUDAExternalParams ext_potentials[3];

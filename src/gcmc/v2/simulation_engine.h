@@ -113,6 +113,13 @@ public:
     PairPotentialParams pair_potentials[3][3];
     ExternalPotentialParams ext_potentials[3];
 
+    // Long-Range Ewald Electrostatics
+    ElectrostaticsMode electrostatics_mode = ElectrostaticsMode::SHORT_RANGE;
+    EwaldParams ewald_params;
+    struct ComplexDouble { double re, im; };
+    std::vector<ComplexDouble> rho_k;
+    double site_charges[3] = {0.0, 0.0, 0.0};
+
     // RPM particle types
     std::string type1_name = "H";
     std::string type2_name = "O";
@@ -133,6 +140,12 @@ public:
     bool load_initial_xyz(const std::string& xyz_path);
 
     void init_move_probabilities();
+    void init_structure_factor();
+    double get_site_charge(const Molecule& mol, int site_idx) const;
+    double get_mol_self_energy(const Molecule& mol) const;
+    void calc_mol_delta_rho_k(const Molecule& mol, std::vector<ComplexDouble>& delta, double sign) const;
+    double calc_ewald_reciprocal_energy_delta(const std::vector<ComplexDouble>& delta) const;
+    double ewald_reciprocal_energy() const;
     double calc_local_energy(const Molecule& mol, int exclude_idx = -1) const;
     double total_energy() const;
 

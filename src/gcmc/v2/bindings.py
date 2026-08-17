@@ -104,6 +104,17 @@ _lib.gcmc_v2_add_molecule_1site.argtypes = [c_void_p, c_int, c_double, c_double,
 
 _lib.gcmc_v2_set_two_type_params.argtypes = [c_void_p, c_char_p, c_char_p, c_double, c_double, c_int, c_int]
 
+_lib.gcmc_v2_set_ewald.argtypes = [
+    c_void_p,
+    c_int,
+    c_double,
+    c_int,
+    c_double,
+    c_double,
+    c_double,
+    c_double,
+]
+
 _lib.gcmc_v2_set_seed.argtypes = [c_void_p, c_uint64]
 _lib.gcmc_v2_total_energy.argtypes = [c_void_p]
 _lib.gcmc_v2_total_energy.restype = c_double
@@ -124,6 +135,15 @@ _lib.gcmc_v2_get_molecule_species.restype = c_int
 
 
 # CUDA batch definitions
+class CUDAEwaldKVector(Structure):
+    _fields_ = [
+        ("kx", c_float),
+        ("ky", c_float),
+        ("kz", c_float),
+        ("weight", c_float),
+    ]
+
+
 class CUDAPairParams(Structure):
     _fields_ = [
         ("kind", c_int),
@@ -188,6 +208,12 @@ class CUDABoxConfig(Structure):
         ("prob_rotate", c_float),
         ("prob_mutate", c_float),
         ("global_rc", c_float),
+        ("electrostatics_mode", c_int),
+        ("ewald_alpha", c_float),
+        ("ewald_self_per_q2", c_float),
+        ("num_k_vectors", c_int),
+        ("k_vectors", CUDAEwaldKVector * 128),
+        ("site_charges", c_float * 3),
         ("pair_potentials", (CUDAPairParams * 3) * 3),
         ("ext_potentials", CUDAExternalParams * 3),
     ]
@@ -298,6 +324,30 @@ class GCMCSimulationV2:
         # Configure External Potentials
         self._configure_external_potentials()
 
+        # Electrostatics & Ewald
+        mode_str = cfg.get("electrostatics_mode", "short_range")
+        enable_lr = cfg.get("enable_long_range", False) or (mode_str == "long_range")
+        mode_id = 1 if enable_lr else 0
+        alpha = float(cfg.get("ewald_alpha", 0.35))
+        kmax = int(cfg.get("ewald_kmax", 4))
+
+        q0, q1, q2 = 0.0, 0.0, 0.0
+        if mol_flag == "ABC":
+            q1 = float(particle_types.get("B", {}).get("q", 0.382))
+            q2 = float(particle_types.get("C", {}).get("q", -0.382))
+        elif mol_flag == "H2O":
+            q0 = float(particle_types.get("O", {}).get("q", -0.8476))
+            q1 = float(particle_types.get("H", {}).get("q", particle_types.get("H1", {}).get("q", 0.4238)))
+            q2 = float(particle_types.get("H", {}).get("q", particle_types.get("H2", {}).get("q", 0.4238)))
+        elif mol_type_id == 2:
+            keys = list(particle_types.keys())
+            q0 = float(particle_types.get(keys[0], {}).get("q", 1.0))
+            q1 = float(particle_types.get(keys[1], {}).get("q", -1.0))
+
+        eps_c = 1.0
+        pref = (1.602176634e-19**2) / (4.0 * np.pi * 8.8541878128e-12 * 1.0e-10 * eps_c) if mol_flag == "H2O" else 1.0
+        _lib.gcmc_v2_set_ewald(self.handle, mode_id, alpha, kmax, pref, q0, q1, q2)
+
         # Two type extra settings
         if mol_type_id == 2:
             pkeys = list(particle_types.keys())
@@ -315,6 +365,8 @@ class GCMCSimulationV2:
             init_path = os.path.join(self.input_folder, init_file)
             if os.path.exists(init_path):
                 self._load_xyz(init_path, mol_type_id)
+                # Refresh Ewald structure factor with loaded molecules
+                _lib.gcmc_v2_set_ewald(self.handle, mode_id, alpha, kmax, pref, q0, q1, q2)
 
     def _configure_potentials(self):
         pair_dict = self.config.get("potential_pairs", {})
@@ -569,6 +621,62 @@ def run_batch_cuda(configs, num_steps=1000, equilibration_steps=200, seed=12345)
         c.prob_delete = w_del / total_w
         c.prob_displace = w_disp / total_w
         c.prob_rotate = w_rot / total_w
+
+        # Ewald configuration
+        mode_str = cfg.get("electrostatics_mode", "short_range")
+        enable_lr = cfg.get("enable_long_range", False) or (mode_str == "long_range")
+        c.electrostatics_mode = 1 if enable_lr else 0
+        alpha = float(cfg.get("ewald_alpha", 0.35))
+        kmax = int(cfg.get("ewald_kmax", 4))
+        c.ewald_alpha = alpha
+
+        pref = (1.602176634e-19**2) / (4.0 * np.pi * 8.8541878128e-12 * 1.0e-10) if mol_flag == "H2O" else 1.0
+        c.ewald_self_per_q2 = pref * alpha / np.sqrt(np.pi)
+
+        if mol_flag == "ABC":
+            c.site_charges[0] = 0.0
+            c.site_charges[1] = float(ptypes.get("B", {}).get("q", 0.382))
+            c.site_charges[2] = float(ptypes.get("C", {}).get("q", -0.382))
+        elif mol_flag == "H2O":
+            c.site_charges[0] = float(ptypes.get("O", {}).get("q", -0.8476))
+            c.site_charges[1] = float(ptypes.get("H", {}).get("q", ptypes.get("H1", {}).get("q", 0.4238)))
+            c.site_charges[2] = float(ptypes.get("H", {}).get("q", ptypes.get("H2", {}).get("q", 0.4238)))
+        elif len(ptypes) == 2:
+            keys = list(ptypes.keys())
+            c.site_charges[0] = float(ptypes.get(keys[0], {}).get("q", 1.0))
+            c.site_charges[1] = float(ptypes.get(keys[1], {}).get("q", -1.0))
+            c.site_charges[2] = 0.0
+
+        if enable_lr:
+            vol = c.box_x * c.box_y * c.box_z
+            two_pi_lx = 2.0 * np.pi / c.box_x
+            two_pi_ly = 2.0 * np.pi / c.box_y
+            two_pi_lz = 2.0 * np.pi / c.box_z
+            k_idx = 0
+            for nx in range(-kmax, kmax + 1):
+                for ny in range(-kmax, kmax + 1):
+                    for nz in range(0, kmax + 1):
+                        if nz == 0 and ny < 0:
+                            continue
+                        if nz == 0 and ny == 0 and nx <= 0:
+                            continue
+                        if nx * nx + ny * ny + nz * nz > kmax * kmax:
+                            continue
+                        if k_idx >= 128:
+                            break
+                        kx = nx * two_pi_lx
+                        ky = ny * two_pi_ly
+                        kz = nz * two_pi_lz
+                        k_sq = kx * kx + ky * ky + kz * kz
+                        if k_sq < 1e-12:
+                            continue
+                        w = pref * (4.0 * np.pi / (vol * k_sq)) * np.exp(-k_sq / (4.0 * alpha * alpha))
+                        c.k_vectors[k_idx].kx = kx
+                        c.k_vectors[k_idx].ky = ky
+                        c.k_vectors[k_idx].kz = kz
+                        c.k_vectors[k_idx].weight = w
+                        k_idx += 1
+            c.num_k_vectors = k_idx
 
     _lib.run_cuda_batch_gcmc(num_boxes, num_steps, equilibration_steps, c_configs, c_outputs, seed)
 

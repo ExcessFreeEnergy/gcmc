@@ -83,6 +83,56 @@ enum class MoleculeType {
     CO2
 };
 
+enum class ElectrostaticsMode {
+    SHORT_RANGE = 0,
+    LONG_RANGE_EWALD = 1
+};
+
+struct EwaldKVector {
+    double kx, ky, kz;
+    double weight;
+};
+
+struct EwaldParams {
+    ElectrostaticsMode mode = ElectrostaticsMode::SHORT_RANGE;
+    double alpha = 0.35;
+    int kmax = 4;
+    double prefactor = 1.0;
+    double self_energy_per_q2 = 0.0;
+    std::vector<EwaldKVector> k_vectors;
+
+    void init(double lx, double ly, double lz, double pref = 1.0) {
+        prefactor = pref;
+        self_energy_per_q2 = prefactor * alpha / std::sqrt(PI);
+        k_vectors.clear();
+        if (mode != ElectrostaticsMode::LONG_RANGE_EWALD) return;
+
+        double volume = lx * ly * lz;
+        double two_pi_lx = 2.0 * PI / lx;
+        double two_pi_ly = 2.0 * PI / ly;
+        double two_pi_lz = 2.0 * PI / lz;
+
+        for (int nx = -kmax; nx <= kmax; ++nx) {
+            for (int ny = -kmax; ny <= kmax; ++ny) {
+                for (int nz = 0; nz <= kmax; ++nz) {
+                    if (nz == 0 && ny < 0) continue;
+                    if (nz == 0 && ny == 0 && nx <= 0) continue;
+                    if (nx * nx + ny * ny + nz * nz > kmax * kmax) continue;
+
+                    double kx = nx * two_pi_lx;
+                    double ky = ny * two_pi_ly;
+                    double kz = nz * two_pi_lz;
+                    double k_sq = kx * kx + ky * ky + kz * kz;
+                    if (k_sq < 1e-12) continue;
+
+                    double weight = prefactor * (4.0 * PI / (volume * k_sq)) * std::exp(-k_sq / (4.0 * alpha * alpha));
+                    k_vectors.push_back({kx, ky, kz, weight});
+                }
+            }
+        }
+    }
+};
+
 enum class PotentialKind {
     NONE = 0,
     LJ,

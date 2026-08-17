@@ -150,6 +150,44 @@ __device__ inline float calc_ext_energy_dev(const CUDAExternalParams& ep, const 
     return 0.0f;
 }
 
+__device__ inline float get_site_charge_dev(const CUDABoxConfig& cfg, int species, int site) {
+    if (cfg.mol_type == 2) {
+        return (species == 0) ? cfg.site_charges[0] : cfg.site_charges[1];
+    }
+    if (cfg.mol_type == 3) {
+        return (site == 0) ? 0.0f : ((site == 1) ? cfg.site_charges[1] : cfg.site_charges[2]);
+    }
+    return cfg.site_charges[site];
+}
+
+__device__ inline float calc_mol_self_energy_dev(const CUDABoxConfig& cfg, int species, int num_sites) {
+    if (cfg.electrostatics_mode != 1) return 0.0f;
+    float sum_q2 = 0.0f;
+    for (int s = 0; s < num_sites; ++s) {
+        float q = get_site_charge_dev(cfg, species, s);
+        sum_q2 += q * q;
+    }
+    return cfg.ewald_self_per_q2 * sum_q2;
+}
+
+__device__ inline float calc_ewald_recip_delta_dev(
+    const CUDABoxConfig& cfg,
+    const float* s_re, const float* s_im,
+    const float* d_re, const float* d_im
+) {
+    if (cfg.electrostatics_mode != 1) return 0.0f;
+    float delta_U = 0.0f;
+    for (int k = 0; k < cfg.num_k_vectors && k < MAX_EWALD_K_VECTORS; ++k) {
+        float w = cfg.k_vectors[k].weight;
+        float r_re = s_re[k];
+        float r_im = s_im[k];
+        float dre = d_re[k];
+        float dim = d_im[k];
+        delta_U += w * (2.0f * (r_re * dre + r_im * dim) + (dre * dre + dim * dim));
+    }
+    return delta_U;
+}
+
 __global__ void batch_gcmc_kernel(
     int num_steps,
     int equilibration_steps,
@@ -168,6 +206,8 @@ __global__ void batch_gcmc_kernel(
     __shared__ int s_num2;
     __shared__ double s_accum_N;
     __shared__ int s_accum_samples;
+    __shared__ float s_rho_k_re[MAX_EWALD_K_VECTORS];
+    __shared__ float s_rho_k_im[MAX_EWALD_K_VECTORS];
 
     DevRNG rng;
     rng.init(static_cast<uint32_t>(base_seed + box_id * 104729 + threadIdx.x * 7919));
@@ -178,6 +218,12 @@ __global__ void batch_gcmc_kernel(
         s_num2 = 0;
         s_accum_N = 0.0;
         s_accum_samples = 0;
+        if (cfg.electrostatics_mode == 1) {
+            for (int k = 0; k < cfg.num_k_vectors && k < MAX_EWALD_K_VECTORS; ++k) {
+                s_rho_k_re[k] = 0.0f;
+                s_rho_k_im[k] = 0.0f;
+            }
+        }
     }
     __syncthreads();
 
@@ -231,6 +277,28 @@ __global__ void batch_gcmc_kernel(
                     delta_E += calc_ext_energy_dev(cfg.ext_potentials[et], trial_sites[s]);
                 }
 
+                float d_re[MAX_EWALD_K_VECTORS];
+                float d_im[MAX_EWALD_K_VECTORS];
+                if (cfg.electrostatics_mode == 1) {
+                    for (int k = 0; k < cfg.num_k_vectors && k < MAX_EWALD_K_VECTORS; ++k) {
+                        float kx = cfg.k_vectors[k].kx;
+                        float ky = cfg.k_vectors[k].ky;
+                        float kz = cfg.k_vectors[k].kz;
+                        float dre = 0.0f, dim = 0.0f;
+                        for (int s = 0; s < num_sites_per_mol; ++s) {
+                            float q = get_site_charge_dev(cfg, trial_species, s);
+                            if (fabsf(q) < 1e-6f) continue;
+                            float k_dot_r = kx * trial_sites[s].x + ky * trial_sites[s].y + kz * trial_sites[s].z;
+                            dre += q * cosf(k_dot_r);
+                            dim += q * sinf(k_dot_r);
+                        }
+                        d_re[k] = dre;
+                        d_im[k] = dim;
+                    }
+                    delta_E += calc_ewald_recip_delta_dev(cfg, s_rho_k_re, s_rho_k_im, d_re, d_im);
+                    delta_E -= calc_mol_self_energy_dev(cfg, trial_species, num_sites_per_mol);
+                }
+
                 float target_mu = (trial_species == 0) ? cfg.mu1 : cfg.mu2;
                 int target_N = (cfg.mol_type == 2) ? ((trial_species == 0) ? s_num1 : s_num2) : s_num_molecules;
                 float prob = expf(-cfg.beta * (delta_E - target_mu)) * volume / (target_N + 1);
@@ -243,6 +311,12 @@ __global__ void batch_gcmc_kernel(
                     s_num_molecules++;
                     if (trial_species == 0) s_num1++;
                     else s_num2++;
+                    if (cfg.electrostatics_mode == 1) {
+                        for (int k = 0; k < cfg.num_k_vectors && k < MAX_EWALD_K_VECTORS; ++k) {
+                            s_rho_k_re[k] += d_re[k];
+                            s_rho_k_im[k] += d_im[k];
+                        }
+                    }
                 }
             } else if (r_move < cfg.prob_insert + cfg.prob_delete && s_num_molecules > 0) {
                 // Delete
@@ -267,6 +341,28 @@ __global__ void batch_gcmc_kernel(
                     delta_E -= calc_ext_energy_dev(cfg.ext_potentials[et], s_pos[idx][s]);
                 }
 
+                float d_re[MAX_EWALD_K_VECTORS];
+                float d_im[MAX_EWALD_K_VECTORS];
+                if (cfg.electrostatics_mode == 1) {
+                    for (int k = 0; k < cfg.num_k_vectors && k < MAX_EWALD_K_VECTORS; ++k) {
+                        float kx = cfg.k_vectors[k].kx;
+                        float ky = cfg.k_vectors[k].ky;
+                        float kz = cfg.k_vectors[k].kz;
+                        float dre = 0.0f, dim = 0.0f;
+                        for (int s = 0; s < num_sites_per_mol; ++s) {
+                            float q = get_site_charge_dev(cfg, del_species, s);
+                            if (fabsf(q) < 1e-6f) continue;
+                            float k_dot_r = kx * s_pos[idx][s].x + ky * s_pos[idx][s].y + kz * s_pos[idx][s].z;
+                            dre -= q * cosf(k_dot_r);
+                            dim -= q * sinf(k_dot_r);
+                        }
+                        d_re[k] = dre;
+                        d_im[k] = dim;
+                    }
+                    delta_E += calc_ewald_recip_delta_dev(cfg, s_rho_k_re, s_rho_k_im, d_re, d_im);
+                    delta_E += calc_mol_self_energy_dev(cfg, del_species, num_sites_per_mol);
+                }
+
                 float target_mu = (del_species == 0) ? cfg.mu1 : cfg.mu2;
                 int target_N = (cfg.mol_type == 2) ? ((del_species == 0) ? s_num1 : s_num2) : s_num_molecules;
                 float log_p = -cfg.beta * (delta_E + target_mu) + logf((float)target_N) - logf(volume);
@@ -282,6 +378,12 @@ __global__ void batch_gcmc_kernel(
                     s_num_molecules--;
                     if (del_species == 0) s_num1--;
                     else s_num2--;
+                    if (cfg.electrostatics_mode == 1) {
+                        for (int k = 0; k < cfg.num_k_vectors && k < MAX_EWALD_K_VECTORS; ++k) {
+                            s_rho_k_re[k] += d_re[k];
+                            s_rho_k_im[k] += d_im[k];
+                        }
+                    }
                 }
             } else if (s_num_molecules > 0) {
                 // Displace
@@ -318,9 +420,37 @@ __global__ void batch_gcmc_kernel(
                 }
 
                 float delta_E = e_new - e_old;
+                float d_re[MAX_EWALD_K_VECTORS];
+                float d_im[MAX_EWALD_K_VECTORS];
+                if (cfg.electrostatics_mode == 1) {
+                    for (int k = 0; k < cfg.num_k_vectors && k < MAX_EWALD_K_VECTORS; ++k) {
+                        float kx = cfg.k_vectors[k].kx;
+                        float ky = cfg.k_vectors[k].ky;
+                        float kz = cfg.k_vectors[k].kz;
+                        float dre = 0.0f, dim = 0.0f;
+                        for (int s = 0; s < num_sites_per_mol; ++s) {
+                            float q = get_site_charge_dev(cfg, sp, s);
+                            if (fabsf(q) < 1e-6f) continue;
+                            float k_new = kx * new_sites[s].x + ky * new_sites[s].y + kz * new_sites[s].z;
+                            float k_old = kx * s_pos[idx][s].x + ky * s_pos[idx][s].y + kz * s_pos[idx][s].z;
+                            dre += q * (cosf(k_new) - cosf(k_old));
+                            dim += q * (sinf(k_new) - sinf(k_old));
+                        }
+                        d_re[k] = dre;
+                        d_im[k] = dim;
+                    }
+                    delta_E += calc_ewald_recip_delta_dev(cfg, s_rho_k_re, s_rho_k_im, d_re, d_im);
+                }
+
                 if (delta_E < 0.0f || rng.uniform() < expf(-cfg.beta * delta_E)) {
                     for (int s = 0; s < num_sites_per_mol; ++s) {
                         s_pos[idx][s] = new_sites[s];
+                    }
+                    if (cfg.electrostatics_mode == 1) {
+                        for (int k = 0; k < cfg.num_k_vectors && k < MAX_EWALD_K_VECTORS; ++k) {
+                            s_rho_k_re[k] += d_re[k];
+                            s_rho_k_im[k] += d_im[k];
+                        }
                     }
                 }
             }

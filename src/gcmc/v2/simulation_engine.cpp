@@ -31,6 +31,88 @@ void GCMCSimulationV2::init_move_probabilities() {
 
     volume = box_x * box_y * box_z;
     beta = 1.0 / (kB * T);
+
+    init_structure_factor();
+}
+
+double GCMCSimulationV2::get_site_charge(const Molecule& mol, int site_idx) const {
+    if (mol_type == MoleculeType::TWO_TYPE_RPM) {
+        return (mol.species_id == 0) ? site_charges[0] : site_charges[1];
+    }
+    if (mol_type == MoleculeType::ABC_DIPOLE) {
+        if (site_idx == 0) return 0.0;
+        return (site_idx == 1) ? site_charges[1] : site_charges[2];
+    }
+    if (site_idx >= 0 && site_idx < 3) return site_charges[site_idx];
+    return 0.0;
+}
+
+double GCMCSimulationV2::get_mol_self_energy(const Molecule& mol) const {
+    if (electrostatics_mode != ElectrostaticsMode::LONG_RANGE_EWALD) return 0.0;
+    double sum_q2 = 0.0;
+    for (int s = 0; s < mol.num_sites; ++s) {
+        double q = get_site_charge(mol, s);
+        sum_q2 += q * q;
+    }
+    return ewald_params.self_energy_per_q2 * sum_q2;
+}
+
+void GCMCSimulationV2::init_structure_factor() {
+    if (electrostatics_mode != ElectrostaticsMode::LONG_RANGE_EWALD) return;
+    ewald_params.init(box_x, box_y, box_z, ewald_params.prefactor);
+    rho_k.assign(ewald_params.k_vectors.size(), {0.0, 0.0});
+    for (int i = 0; i < number; ++i) {
+        std::vector<ComplexDouble> delta;
+        calc_mol_delta_rho_k(molecules[i], delta, 1.0);
+        for (size_t k = 0; k < delta.size(); ++k) {
+            rho_k[k].re += delta[k].re;
+            rho_k[k].im += delta[k].im;
+        }
+    }
+}
+
+void GCMCSimulationV2::calc_mol_delta_rho_k(const Molecule& mol, std::vector<ComplexDouble>& delta, double sign) const {
+    delta.resize(ewald_params.k_vectors.size());
+    for (size_t m = 0; m < ewald_params.k_vectors.size(); ++m) {
+        const auto& kv = ewald_params.k_vectors[m];
+        double dre = 0.0, dim = 0.0;
+        for (int s = 0; s < mol.num_sites; ++s) {
+            double q = get_site_charge(mol, s);
+            if (std::abs(q) < 1e-12) continue;
+            double k_dot_r = kv.kx * mol.sites[s].x + kv.ky * mol.sites[s].y + kv.kz * mol.sites[s].z;
+            dre += q * std::cos(k_dot_r);
+            dim += q * std::sin(k_dot_r);
+        }
+        delta[m] = {sign * dre, sign * dim};
+    }
+}
+
+double GCMCSimulationV2::calc_ewald_reciprocal_energy_delta(const std::vector<ComplexDouble>& delta) const {
+    if (electrostatics_mode != ElectrostaticsMode::LONG_RANGE_EWALD) return 0.0;
+    double delta_U = 0.0;
+    for (size_t m = 0; m < ewald_params.k_vectors.size(); ++m) {
+        double w = ewald_params.k_vectors[m].weight;
+        double r_re = rho_k[m].re;
+        double r_im = rho_k[m].im;
+        double d_re = delta[m].re;
+        double d_im = delta[m].im;
+        delta_U += w * (2.0 * (r_re * d_re + r_im * d_im) + (d_re * d_re + d_im * d_im));
+    }
+    return delta_U;
+}
+
+double GCMCSimulationV2::ewald_reciprocal_energy() const {
+    if (electrostatics_mode != ElectrostaticsMode::LONG_RANGE_EWALD) return 0.0;
+    double u_recip = 0.0;
+    for (size_t m = 0; m < ewald_params.k_vectors.size(); ++m) {
+        double w = ewald_params.k_vectors[m].weight;
+        u_recip += w * (rho_k[m].re * rho_k[m].re + rho_k[m].im * rho_k[m].im);
+    }
+    double u_self = 0.0;
+    for (int i = 0; i < number; ++i) {
+        u_self += get_mol_self_energy(molecules[i]);
+    }
+    return u_recip - u_self;
 }
 
 double GCMCSimulationV2::calc_local_energy(const Molecule& mol, int exclude_idx) const {
@@ -68,6 +150,10 @@ double GCMCSimulationV2::calc_local_energy(const Molecule& mol, int exclude_idx)
 }
 
 double GCMCSimulationV2::total_energy() const {
+    if (electrostatics_mode == ElectrostaticsMode::LONG_RANGE_EWALD && rho_k.empty() && number > 0) {
+        const_cast<GCMCSimulationV2*>(this)->init_structure_factor();
+    }
+
     double e_pair = 0.0;
     double e_ext = 0.0;
 
@@ -103,7 +189,8 @@ double GCMCSimulationV2::total_energy() const {
         }
     }
 
-    return e_pair + e_ext;
+    double e_ewald = (electrostatics_mode == ElectrostaticsMode::LONG_RANGE_EWALD) ? ewald_reciprocal_energy() : 0.0;
+    return e_pair + e_ext + e_ewald;
 }
 
 Molecule GCMCSimulationV2::generate_random_molecule() {
@@ -197,21 +284,45 @@ void GCMCSimulationV2::step_abc() {
         // Insert
         Molecule new_mol = generate_random_molecule();
         double delta_E = calc_local_energy(new_mol);
+        std::vector<ComplexDouble> delta_k;
+        if (electrostatics_mode == ElectrostaticsMode::LONG_RANGE_EWALD) {
+            calc_mol_delta_rho_k(new_mol, delta_k, 1.0);
+            delta_E += calc_ewald_reciprocal_energy_delta(delta_k);
+            delta_E -= get_mol_self_energy(new_mol);
+        }
         double prob = std::exp(-beta * (delta_E - mu)) * volume / (number + 1);
         if (rng.uniform() < prob) {
             molecules.push_back(new_mol);
             number++;
+            if (electrostatics_mode == ElectrostaticsMode::LONG_RANGE_EWALD) {
+                for (size_t k = 0; k < delta_k.size(); ++k) {
+                    rho_k[k].re += delta_k[k].re;
+                    rho_k[k].im += delta_k[k].im;
+                }
+            }
         }
     } else if (r < prob_insert + prob_delete) {
         // Delete
         if (number > 0) {
             int idx = rng.randint(0, number - 1);
             double delta_E = -calc_local_energy(molecules[idx], idx);
+            std::vector<ComplexDouble> delta_k;
+            if (electrostatics_mode == ElectrostaticsMode::LONG_RANGE_EWALD) {
+                calc_mol_delta_rho_k(molecules[idx], delta_k, -1.0);
+                delta_E += calc_ewald_reciprocal_energy_delta(delta_k);
+                delta_E += get_mol_self_energy(molecules[idx]);
+            }
             double log_prob = -beta * (delta_E + mu) + std::log(static_cast<double>(number)) - std::log(volume);
             double prob = (log_prob < 700.0) ? std::exp(log_prob) : 0.0;
             if (rng.uniform() < prob) {
                 molecules.erase(molecules.begin() + idx);
                 number--;
+                if (electrostatics_mode == ElectrostaticsMode::LONG_RANGE_EWALD) {
+                    for (size_t k = 0; k < delta_k.size(); ++k) {
+                        rho_k[k].re += delta_k[k].re;
+                        rho_k[k].im += delta_k[k].im;
+                    }
+                }
             }
         }
     } else if (r < prob_insert + prob_delete + prob_displace) {
@@ -231,9 +342,26 @@ void GCMCSimulationV2::step_abc() {
             double old_e = calc_local_energy(old_mol, idx);
             double new_e = calc_local_energy(new_mol, idx);
             double delta_E = new_e - old_e;
+            std::vector<ComplexDouble> delta_k;
+            if (electrostatics_mode == ElectrostaticsMode::LONG_RANGE_EWALD) {
+                std::vector<ComplexDouble> d_new, d_old;
+                calc_mol_delta_rho_k(new_mol, d_new, 1.0);
+                calc_mol_delta_rho_k(old_mol, d_old, -1.0);
+                delta_k.resize(d_new.size());
+                for (size_t k = 0; k < d_new.size(); ++k) {
+                    delta_k[k] = {d_new[k].re + d_old[k].re, d_new[k].im + d_old[k].im};
+                }
+                delta_E += calc_ewald_reciprocal_energy_delta(delta_k);
+            }
             double log_p = -beta * delta_E;
             if (log_p > 0.0 || rng.uniform() < std::exp(log_p)) {
                 molecules[idx] = new_mol;
+                if (electrostatics_mode == ElectrostaticsMode::LONG_RANGE_EWALD) {
+                    for (size_t k = 0; k < delta_k.size(); ++k) {
+                        rho_k[k].re += delta_k[k].re;
+                        rho_k[k].im += delta_k[k].im;
+                    }
+                }
             }
         }
     } else {
@@ -245,9 +373,26 @@ void GCMCSimulationV2::step_abc() {
             double old_e = calc_local_energy(old_mol, idx);
             double new_e = calc_local_energy(new_mol, idx);
             double delta_E = new_e - old_e;
+            std::vector<ComplexDouble> delta_k;
+            if (electrostatics_mode == ElectrostaticsMode::LONG_RANGE_EWALD) {
+                std::vector<ComplexDouble> d_new, d_old;
+                calc_mol_delta_rho_k(new_mol, d_new, 1.0);
+                calc_mol_delta_rho_k(old_mol, d_old, -1.0);
+                delta_k.resize(d_new.size());
+                for (size_t k = 0; k < d_new.size(); ++k) {
+                    delta_k[k] = {d_new[k].re + d_old[k].re, d_new[k].im + d_old[k].im};
+                }
+                delta_E += calc_ewald_reciprocal_energy_delta(delta_k);
+            }
             double log_p = -beta * delta_E;
             if (log_p > 0.0 || rng.uniform() < std::exp(log_p)) {
                 molecules[idx] = new_mol;
+                if (electrostatics_mode == ElectrostaticsMode::LONG_RANGE_EWALD) {
+                    for (size_t k = 0; k < delta_k.size(); ++k) {
+                        rho_k[k].re += delta_k[k].re;
+                        rho_k[k].im += delta_k[k].im;
+                    }
+                }
             }
         }
     }
@@ -271,12 +416,24 @@ void GCMCSimulationV2::step_two_type() {
         int target_num = (new_mol.species_id == 0) ? number1 : number2;
 
         double delta_E = calc_local_energy(new_mol);
+        std::vector<ComplexDouble> delta_k;
+        if (electrostatics_mode == ElectrostaticsMode::LONG_RANGE_EWALD) {
+            calc_mol_delta_rho_k(new_mol, delta_k, 1.0);
+            delta_E += calc_ewald_reciprocal_energy_delta(delta_k);
+            delta_E -= get_mol_self_energy(new_mol);
+        }
         double prob = std::exp(-beta * (delta_E - target_mu)) * volume / (target_num + 1);
         if (rng.uniform() < prob) {
             molecules.push_back(new_mol);
             number++;
             if (new_mol.species_id == 0) number1++;
             else number2++;
+            if (electrostatics_mode == ElectrostaticsMode::LONG_RANGE_EWALD) {
+                for (size_t k = 0; k < delta_k.size(); ++k) {
+                    rho_k[k].re += delta_k[k].re;
+                    rho_k[k].im += delta_k[k].im;
+                }
+            }
         }
     } else if (r < prob_insert + prob_delete) {
         // Delete
@@ -287,6 +444,12 @@ void GCMCSimulationV2::step_two_type() {
             int target_num = (del_mol.species_id == 0) ? number1 : number2;
 
             double delta_E = -calc_local_energy(del_mol, idx);
+            std::vector<ComplexDouble> delta_k;
+            if (electrostatics_mode == ElectrostaticsMode::LONG_RANGE_EWALD) {
+                calc_mol_delta_rho_k(del_mol, delta_k, -1.0);
+                delta_E += calc_ewald_reciprocal_energy_delta(delta_k);
+                delta_E += get_mol_self_energy(del_mol);
+            }
             double log_prob = -beta * (delta_E + target_mu) + std::log(static_cast<double>(target_num)) - std::log(volume);
             double prob = (log_prob < 700.0) ? std::exp(log_prob) : 0.0;
             if (rng.uniform() < prob) {
@@ -294,6 +457,12 @@ void GCMCSimulationV2::step_two_type() {
                 else number2--;
                 molecules.erase(molecules.begin() + idx);
                 number--;
+                if (electrostatics_mode == ElectrostaticsMode::LONG_RANGE_EWALD) {
+                    for (size_t k = 0; k < delta_k.size(); ++k) {
+                        rho_k[k].re += delta_k[k].re;
+                        rho_k[k].im += delta_k[k].im;
+                    }
+                }
             }
         }
     } else if (r < prob_insert + prob_delete + prob_displace) {
@@ -312,9 +481,26 @@ void GCMCSimulationV2::step_two_type() {
             double old_e = calc_local_energy(old_mol, idx);
             double new_e = calc_local_energy(new_mol, idx);
             double delta_E = new_e - old_e;
+            std::vector<ComplexDouble> delta_k;
+            if (electrostatics_mode == ElectrostaticsMode::LONG_RANGE_EWALD) {
+                std::vector<ComplexDouble> d_new, d_old;
+                calc_mol_delta_rho_k(new_mol, d_new, 1.0);
+                calc_mol_delta_rho_k(old_mol, d_old, -1.0);
+                delta_k.resize(d_new.size());
+                for (size_t k = 0; k < d_new.size(); ++k) {
+                    delta_k[k] = {d_new[k].re + d_old[k].re, d_new[k].im + d_old[k].im};
+                }
+                delta_E += calc_ewald_reciprocal_energy_delta(delta_k);
+            }
             double log_p = -beta * delta_E;
             if (log_p > 0.0 || rng.uniform() < std::exp(log_p)) {
                 molecules[idx] = new_mol;
+                if (electrostatics_mode == ElectrostaticsMode::LONG_RANGE_EWALD) {
+                    for (size_t k = 0; k < delta_k.size(); ++k) {
+                        rho_k[k].re += delta_k[k].re;
+                        rho_k[k].im += delta_k[k].im;
+                    }
+                }
             }
         }
     } else {

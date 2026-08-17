@@ -28,6 +28,24 @@ def cli(argv=None):
         default="v2",
         help="Simulation engine: 'v2' (high-performance C++/CUDA, default) or 'v1' (Python baseline).",
     )
+    parser.add_argument(
+        "--enable-long-range",
+        action="store_true",
+        default=False,
+        help="Enable full long-range Ewald electrostatics (v2 engine only). Default is short-range (SR).",
+    )
+    parser.add_argument(
+        "--ewald-alpha",
+        type=float,
+        default=None,
+        help="Ewald screening parameter alpha (default: 0.35 A^-1).",
+    )
+    parser.add_argument(
+        "--ewald-kmax",
+        type=int,
+        default=None,
+        help="Max reciprocal k-vector index kmax (default: 4).",
+    )
     args = parser.parse_args(argv)
 
     input_folder = args.input_folder
@@ -38,6 +56,14 @@ def cli(argv=None):
 
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
+
+    if args.enable_long_range:
+        config["enable_long_range"] = True
+        config["electrostatics_mode"] = "long_range"
+    if args.ewald_alpha is not None:
+        config["ewald_alpha"] = args.ewald_alpha
+    if args.ewald_kmax is not None:
+        config["ewald_kmax"] = args.ewald_kmax
 
     if args.engine == "v2":
         try:
