@@ -3,13 +3,13 @@ PufferLib-compatible reinforcement learning environment for cDFT fluid manipulat
 Accelerated with native C core (libcdft_env.so).
 """
 
-import os
 import ctypes
-from ctypes import c_void_p, c_float, c_int, c_ubyte, Structure, POINTER
+import os
+from ctypes import POINTER, Structure, c_float, c_int, c_ubyte
+
 import numpy as np
 
 try:
-    import gymnasium
     from gymnasium import spaces
 except ImportError:
     # Minimal fallback space implementation if gymnasium is not in environment
@@ -24,6 +24,7 @@ except ImportError:
             def sample(self):
                 return np.random.uniform(self.low, self.high, size=self.shape).astype(self.dtype)
 
+
 # Path to shared C library
 _DIR = os.path.dirname(os.path.abspath(__file__))
 _SO_PATH = os.path.join(_DIR, "libcdft_env.so")
@@ -32,6 +33,7 @@ _SO_PATH = os.path.join(_DIR, "libcdft_env.so")
 def _load_c_lib():
     if not os.path.exists(_SO_PATH):
         import subprocess
+
         cmd = f"gcc -O3 -shared -fPIC -lm {_DIR}/cdft_env.c -o {_SO_PATH}"
         subprocess.run(cmd, shell=True, check=True)
     return ctypes.CDLL(_SO_PATH)
@@ -82,13 +84,10 @@ class CdftFluidEnv:
     """
     Continuous control environment for cDFT dielectrocapillary fluid manipulation.
     """
+
     def __init__(self, max_ticks=100, seed=None):
-        self.single_observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(CDFT_OBS_SIZE,), dtype=np.float32
-        )
-        self.single_action_space = spaces.Box(
-            low=-1.0, high=1.0, shape=(CDFT_NUM_ACTIONS,), dtype=np.float32
-        )
+        self.single_observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(CDFT_OBS_SIZE,), dtype=np.float32)
+        self.single_action_space = spaces.Box(low=-1.0, high=1.0, shape=(CDFT_NUM_ACTIONS,), dtype=np.float32)
         self.observation_space = self.single_observation_space
         self.action_space = self.single_action_space
         self.num_agents = 1
@@ -189,14 +188,11 @@ class BatchedCdftVecEnv:
     High-throughput vectorized environment running N independent cDFT instances
     in contiguous memory buffers.
     """
+
     def __init__(self, num_envs=64, max_ticks=100):
         self.num_envs = num_envs
-        self.single_observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(CDFT_OBS_SIZE,), dtype=np.float32
-        )
-        self.single_action_space = spaces.Box(
-            low=-1.0, high=1.0, shape=(CDFT_NUM_ACTIONS,), dtype=np.float32
-        )
+        self.single_observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(CDFT_OBS_SIZE,), dtype=np.float32)
+        self.single_action_space = spaces.Box(low=-1.0, high=1.0, shape=(CDFT_NUM_ACTIONS,), dtype=np.float32)
 
         self.observations = np.zeros((num_envs, CDFT_OBS_SIZE), dtype=np.float32)
         self.actions = np.zeros((num_envs, CDFT_NUM_ACTIONS), dtype=np.float32)
@@ -208,8 +204,8 @@ class BatchedCdftVecEnv:
             c_env = self._c_envs[i]
             c_env.observations = self.observations[i].ctypes.data_as(POINTER(c_float))
             c_env.actions = self.actions[i].ctypes.data_as(POINTER(c_float))
-            c_env.rewards = self.rewards[i:i+1].ctypes.data_as(POINTER(c_float))
-            c_env.terminals = self.terminals[i:i+1].ctypes.data_as(POINTER(c_ubyte))
+            c_env.rewards = self.rewards[i : i + 1].ctypes.data_as(POINTER(c_float))
+            c_env.terminals = self.terminals[i : i + 1].ctypes.data_as(POINTER(c_ubyte))
             c_env.max_ticks = max_ticks
             _clib.c_reset(ctypes.byref(c_env))
 

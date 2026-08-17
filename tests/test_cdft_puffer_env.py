@@ -3,14 +3,14 @@ Tests for the PufferLib-compatible cDFT fluid manipulation environment.
 """
 
 import time
+
 import numpy as np
-import pytest
 
 from gcmc.envs.cdft_puffer import (
-    CdftFluidEnv,
-    BatchedCdftVecEnv,
-    CDFT_OBS_SIZE,
     CDFT_NUM_ACTIONS,
+    CDFT_OBS_SIZE,
+    BatchedCdftVecEnv,
+    CdftFluidEnv,
 )
 
 
@@ -54,8 +54,8 @@ def test_cdft_vec_env_batched_throughput():
     # Benchmark 200 batched steps
     steps = 200
     actions = np.zeros((num_envs, CDFT_NUM_ACTIONS), dtype=np.float32)
-    actions[:, 0] = 0.1 # phi0 nudge
-    actions[:, 1] = -0.05 # mode nudge
+    actions[:, 0] = 0.1  # phi0 nudge
+    actions[:, 1] = -0.05  # mode nudge
 
     t0 = time.perf_counter()
     for _ in range(steps):

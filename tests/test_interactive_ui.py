@@ -2,15 +2,8 @@
 Automated unit tests for Raylib interactive UI components and CLI flags.
 """
 
-import os
-import sys
-import numpy as np
-import pytest
-
-from gcmc.ui.widgets import (
-    COLOR_BG, COLOR_PANEL, COLOR_TEXT, COLOR_ACCENT
-)
 from gcmc.ui.raylib_cdft_viewer import CDFTInteractiveViewer
+from gcmc.ui.widgets import COLOR_ACCENT, COLOR_BG, COLOR_PANEL, COLOR_TEXT
 
 
 def test_ui_theme_colors():

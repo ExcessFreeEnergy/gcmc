@@ -167,7 +167,6 @@ __global__ void batch_gcmc_kernel(
     __shared__ int s_num1;
     __shared__ int s_num2;
     __shared__ double s_accum_N;
-    __shared__ double s_accum_E;
     __shared__ int s_accum_samples;
 
     DevRNG rng;
@@ -178,7 +177,6 @@ __global__ void batch_gcmc_kernel(
         s_num1 = 0;
         s_num2 = 0;
         s_accum_N = 0.0;
-        s_accum_E = 0.0;
         s_accum_samples = 0;
     }
     __syncthreads();

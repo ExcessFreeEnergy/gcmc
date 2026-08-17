@@ -6,16 +6,15 @@ Compares GCMC v2 engine simulations against the published dataset from
 
 import os
 import sys
-import numpy as np
-import yaml
 import time
 
-from gcmc.v1 import load_config
-from gcmc.v1.potentials import initialize_potentials as init_pot_v1
+import numpy as np
+import yaml
+
+import gcmc.v2 as engine_v2
 from gcmc.v1.external_potentials import initialize_external_potentials as init_ext_v1
 from gcmc.v1.gcmc_ff_molecule import GCMC_FF_H2O_Simulation
-import gcmc.v2 as engine_v2
-
+from gcmc.v1.potentials import initialize_potentials as init_pot_v1
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "online_data", "OnlineData")
 
@@ -24,7 +23,7 @@ def parse_lammps_init_data(data_path):
     """
     Parses LAMMPS data file (init.data) and extracts coordinates of water molecules.
     """
-    with open(data_path, 'r') as f:
+    with open(data_path, "r") as f:
         lines = f.readlines()
 
     box = [0.0, 0.0, 0.0]
@@ -50,7 +49,7 @@ def parse_lammps_init_data(data_path):
         elif reading_atoms and line_s:
             parts = line_s.split()
             if len(parts) >= 7:
-                atom_id = int(parts[0])
+                int(parts[0])
                 mol_id = int(parts[1])
                 type_id = int(parts[2])
                 q = float(parts[3])
@@ -62,18 +61,18 @@ def parse_lammps_init_data(data_path):
     for mol_id, type_id, q, x, y, z in atom_lines:
         if mol_id not in molecules:
             molecules[mol_id] = {}
-        if type_id == 1: # Oxygen
-            molecules[mol_id]['O'] = np.array([x, y, z])
-        elif type_id == 2: # Hydrogen
-            if 'H1' not in molecules[mol_id]:
-                molecules[mol_id]['H1'] = np.array([x, y, z])
+        if type_id == 1:  # Oxygen
+            molecules[mol_id]["O"] = np.array([x, y, z])
+        elif type_id == 2:  # Hydrogen
+            if "H1" not in molecules[mol_id]:
+                molecules[mol_id]["H1"] = np.array([x, y, z])
             else:
-                molecules[mol_id]['H2'] = np.array([x, y, z])
+                molecules[mol_id]["H2"] = np.array([x, y, z])
 
     mol_list = []
     for m in molecules.values():
-        if 'O' in m and 'H1' in m and 'H2' in m:
-            mol_list.append([m['O'], m['H1'], m['H2']])
+        if "O" in m and "H1" in m and "H2" in m:
+            mol_list.append([m["O"], m["H1"], m["H2"]])
 
     return np.array(mol_list), box
 
@@ -84,9 +83,9 @@ def export_as_xyz(mol_coords, box, out_path):
     """
     num_molecules = len(mol_coords)
     total_atoms = num_molecules * 3
-    with open(out_path, 'w') as f:
+    with open(out_path, "w") as f:
         f.write(f"{total_atoms}\n")
-        f.write(f"Lattice=\"{box[0]} 0.0 0.0 0.0 {box[1]} 0.0 0.0 0.0 {box[2]}\" Properties=species:S:1:pos:R:3\n")
+        f.write(f'Lattice="{box[0]} 0.0 0.0 0.0 {box[1]} 0.0 0.0 0.0 {box[2]}" Properties=species:S:1:pos:R:3\n')
         for m in mol_coords:
             f.write(f"O  {m[0][0]:.8f} {m[0][1]:.8f} {m[0][2]:.8f}\n")
             f.write(f"H1 {m[1][0]:.8f} {m[1][1]:.8f} {m[1][2]:.8f}\n")
@@ -118,39 +117,66 @@ def main():
     export_as_xyz(mol_coords, box, xyz_path)
 
     config = {
-        'T': 300.0,
-        'kB': 1.380649e-23,
-        'molecule': 'H2O',
-        'box_length_x': float(box[0]),
-        'box_length_y': float(box[1]),
-        'box_length_z': float(box[2]),
-        'global_rc': 9.0,
-        'max_steps': 5000,
-        'equilibration': 1000,
-        'output_interval': 500,
-        'print_energy': True,
-        'init_config': 'initial.xyz',
-        'bond_length': 1.0,
-        'maxdispl': 0.25,
-        'particle_types': {
-            'H2O': {'mu': -8.0, 'Vext': 'None'},
-            'O': {'q': -0.8476, 'Vext': 'None'},
-            'H': {'q': 0.4238, 'Vext': 'None'},
+        "T": 300.0,
+        "kB": 1.380649e-23,
+        "molecule": "H2O",
+        "box_length_x": float(box[0]),
+        "box_length_y": float(box[1]),
+        "box_length_z": float(box[2]),
+        "global_rc": 9.0,
+        "max_steps": 5000,
+        "equilibration": 1000,
+        "output_interval": 500,
+        "print_energy": True,
+        "init_config": "initial.xyz",
+        "bond_length": 1.0,
+        "maxdispl": 0.25,
+        "particle_types": {
+            "H2O": {"mu": -8.0, "Vext": "None"},
+            "O": {"q": -0.8476, "Vext": "None"},
+            "H": {"q": 0.4238, "Vext": "None"},
         },
-        'potential_pairs': {
-            'O_O': {'type': 'LJ+C', 'epsilon_lj': 0.1553, 'sigma_lj': 3.166, 'epsilon_c': 1.0, 'q1': -0.8476, 'q2': -0.8476, 'kappa_inv': 4.5, 'rc': 9.0},
-            'H_H': {'type': 'LJ+C', 'epsilon_lj': 0.0, 'sigma_lj': 0.0, 'epsilon_c': 1.0, 'q1': 0.4238, 'q2': 0.4238, 'kappa_inv': 4.5, 'rc': 9.0},
-            'H_O': {'type': 'LJ+C', 'epsilon_lj': 0.0, 'sigma_lj': 0.0, 'epsilon_c': 1.0, 'q1': 0.4238, 'q2': -0.8476, 'kappa_inv': 4.5, 'rc': 9.0},
+        "potential_pairs": {
+            "O_O": {
+                "type": "LJ+C",
+                "epsilon_lj": 0.1553,
+                "sigma_lj": 3.166,
+                "epsilon_c": 1.0,
+                "q1": -0.8476,
+                "q2": -0.8476,
+                "kappa_inv": 4.5,
+                "rc": 9.0,
+            },
+            "H_H": {
+                "type": "LJ+C",
+                "epsilon_lj": 0.0,
+                "sigma_lj": 0.0,
+                "epsilon_c": 1.0,
+                "q1": 0.4238,
+                "q2": 0.4238,
+                "kappa_inv": 4.5,
+                "rc": 9.0,
+            },
+            "H_O": {
+                "type": "LJ+C",
+                "epsilon_lj": 0.0,
+                "sigma_lj": 0.0,
+                "epsilon_c": 1.0,
+                "q1": 0.4238,
+                "q2": -0.8476,
+                "kappa_inv": 4.5,
+                "rc": 9.0,
+            },
         },
-        'weights': {'insert': 0.0, 'delete': 0.0, 'displace': 0.5, 'rotate': 0.5},
+        "weights": {"insert": 0.0, "delete": 0.0, "displace": 0.5, "rotate": 0.5},
     }
 
     yaml_path = os.path.join(test_dir, "input.yaml")
-    with open(yaml_path, 'w') as f:
+    with open(yaml_path, "w") as f:
         yaml.dump(config, f)
 
     # 3. Compute initial energy comparison between v1 and v2 on the published configuration
-    print(f"\n2. Evaluating exact total Gaussian-truncated potential energy on published configuration:")
+    print("\n2. Evaluating exact total Gaussian-truncated potential energy on published configuration:")
     pair_pot_v1 = init_pot_v1(config)
     ext_pot_v1 = init_ext_v1(config)
     sim_v1 = GCMC_FF_H2O_Simulation(config, pair_pot_v1, ext_pot_v1, test_dir)
@@ -165,7 +191,7 @@ def main():
     print(f"   -> Relative Difference:   {rel_diff:.2e} (Exact Parity Validated!)")
 
     # 4. Run 5,000 steps with v2 engine and measure sampling throughput
-    print(f"\n3. Running NVT/GCMC sampling with v2 engine (5,000 MC steps):")
+    print("\n3. Running NVT/GCMC sampling with v2 engine (5,000 MC steps):")
     t0 = time.perf_counter()
     sim_v2.run_simulation()
     t_v2 = time.perf_counter() - t0

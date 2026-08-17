@@ -245,12 +245,16 @@ void gcmc_v2_step(GCMCHandle handle) {
 void gcmc_v2_get_site_pos(GCMCHandle handle, int mol_idx, int site_idx, double* x, double* y, double* z) {
     auto sim = static_cast<GCMCSimulationV2*>(handle);
     if (mol_idx < 0 || mol_idx >= static_cast<int>(sim->molecules.size())) {
-        if (x) *x = 0.0; if (y) *y = 0.0; if (z) *z = 0.0;
+        if (x) *x = 0.0;
+        if (y) *y = 0.0;
+        if (z) *z = 0.0;
         return;
     }
     const auto& mol = sim->molecules[mol_idx];
     if (site_idx < 0 || site_idx >= mol.num_sites) {
-        if (x) *x = 0.0; if (y) *y = 0.0; if (z) *z = 0.0;
+        if (x) *x = 0.0;
+        if (y) *y = 0.0;
+        if (z) *z = 0.0;
         return;
     }
     if (x) *x = mol.sites[site_idx].x;

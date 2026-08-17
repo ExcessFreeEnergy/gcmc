@@ -3,17 +3,22 @@ Interactive 2D/3D cDFT Fluid Manipulation & Reinforcement Learning Viewer using 
 Allows real-time dielectrocapillarity parameter tweaking and active policy control.
 """
 
+import argparse
 import os
 import sys
-import math
-import argparse
+
 import numpy as np
 import pyray as pr
 
 from gcmc.envs.cdft_puffer import CdftFluidEnv
+
 from .widgets import (
-    draw_panel, draw_slider, draw_button, draw_toggle, draw_realtime_curve,
-    COLOR_BG, COLOR_TEXT, COLOR_TEXT_DIM, COLOR_ACCENT, COLOR_BORDER
+    COLOR_BG,
+    COLOR_BORDER,
+    draw_button,
+    draw_panel,
+    draw_realtime_curve,
+    draw_slider,
 )
 
 
@@ -22,6 +27,7 @@ class CDFTInteractiveViewer:
     Interactive GUI for neural classical density functional theory (cDFT)
     dielectrocapillarity control and RL policy evaluation.
     """
+
     def __init__(self, policy_path=None, width=1280, height=720):
         self.width = width
         self.height = height
@@ -40,9 +46,9 @@ class CDFTInteractiveViewer:
             self.load_policy(self.policy_path)
 
         # Manual control parameters
-        self.phi_0 = 15.0      # Volts
-        self.mode_m = 1.0      # Spatial harmonic
-        self.v_bias = 0.0      # Bias offset
+        self.phi_0 = 15.0  # Volts
+        self.mode_m = 1.0  # Spatial harmonic
+        self.v_bias = 0.0  # Bias offset
         self.target_filling = self.env.target_filling
 
         # History tracking
@@ -57,7 +63,9 @@ class CDFTInteractiveViewer:
     def load_policy(self, path):
         try:
             import torch
+
             from gcmc.envs.train_pufferl import CdftPolicy
+
             self.policy = CdftPolicy(obs_dim=106, act_dim=3)
             checkpoint = torch.load(path, map_location="cpu")
             if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
@@ -78,6 +86,7 @@ class CDFTInteractiveViewer:
 
         if self.is_agent_controlled and self.policy is not None:
             import torch
+
             with torch.no_grad():
                 obs_t = torch.tensor(self.obs, dtype=torch.float32).unsqueeze(0)
                 action = self.policy(obs_t).squeeze(0).numpy()
@@ -136,7 +145,7 @@ class CDFTInteractiveViewer:
 
         for i in range(self.nz):
             val = float(rho[i])
-            norm_val = max(0.0, min(1.0, val / 0.040)) # Saturation at 0.04 molecules/A^3
+            norm_val = max(0.0, min(1.0, val / 0.040))  # Saturation at 0.04 molecules/A^3
 
             # Interpolate from vapor light blue to deep liquid blue
             r_col = int(25 + (1.0 - norm_val) * 40)
@@ -158,7 +167,13 @@ class CDFTInteractiveViewer:
         # Annotations
         filling = self.env.current_filling
         target = self.env.target_filling
-        pr.draw_text(f"Pore Filling: {filling*100:.1f}%  |  Target: {target*100:.1f}%", inner_x + 12, slit_y + 10, 13, pr.WHITE)
+        pr.draw_text(
+            f"Pore Filling: {filling * 100:.1f}%  |  Target: {target * 100:.1f}%",
+            inner_x + 12,
+            slit_y + 10,
+            13,
+            pr.WHITE,
+        )
 
     def draw_scientific_plots(self, x, y, w, h):
         """
@@ -172,9 +187,13 @@ class CDFTInteractiveViewer:
         # 1. Density Profile rho(z)
         rho = self.env.density_profile
         draw_realtime_curve(
-            x + 10, py, w - 20, plot_h,
-            rho, title="Fluid Density Profile rho(z) [molecules / A^3]",
-            color=pr.Color(50, 180, 255, 255)
+            x + 10,
+            py,
+            w - 20,
+            plot_h,
+            rho,
+            title="Fluid Density Profile rho(z) [molecules / A^3]",
+            color=pr.Color(50, 180, 255, 255),
         )
 
         py += plot_h + 8
@@ -188,9 +207,13 @@ class CDFTInteractiveViewer:
         phi_z = (phi_0 / m) * np.cos(2.0 * np.pi * m * z / Lz) + bias
 
         draw_realtime_curve(
-            x + 10, py, w - 20, plot_h,
-            phi_z, title="Electrostatic Potential phi(z) [V]",
-            color=pr.Color(255, 180, 40, 255)
+            x + 10,
+            py,
+            w - 20,
+            plot_h,
+            phi_z,
+            title="Electrostatic Potential phi(z) [V]",
+            color=pr.Color(255, 180, 40, 255),
         )
 
     def draw_control_panel(self, x, y, w, h):
@@ -229,30 +252,24 @@ class CDFTInteractiveViewer:
 
         # 3. Voltage Amplitude Slider
         self.phi_0 = draw_slider(
-            x + 14, py, w - 28, 30,
-            "Voltage Amplitude phi_0 (V)", self.phi_0, -38.2, 38.2, "%.1f V"
+            x + 14, py, w - 28, 30, "Voltage Amplitude phi_0 (V)", self.phi_0, -38.2, 38.2, "%.1f V"
         )
         py += 44
 
         # 4. Spatial Mode m Slider
-        self.mode_m = draw_slider(
-            x + 14, py, w - 28, 30,
-            "Spatial Harmonic Mode m", self.mode_m, 1.0, 4.0, "m = %d"
-        )
+        self.mode_m = draw_slider(x + 14, py, w - 28, 30, "Spatial Harmonic Mode m", self.mode_m, 1.0, 4.0, "m = %d")
         self.mode_m = round(self.mode_m)
         py += 44
 
         # 5. DC Bias Slider
         self.v_bias = draw_slider(
-            x + 14, py, w - 28, 30,
-            "DC Bias Offset V_bias (V)", self.v_bias, -10.0, 10.0, "%.1f V"
+            x + 14, py, w - 28, 30, "DC Bias Offset V_bias (V)", self.v_bias, -10.0, 10.0, "%.1f V"
         )
         py += 44
 
         # 6. Target Filling Fraction
         new_target = draw_slider(
-            x + 14, py, w - 28, 30,
-            "Target Pore Filling Fraction", self.target_filling, 0.10, 0.90, "%.2f"
+            x + 14, py, w - 28, 30, "Target Pore Filling Fraction", self.target_filling, 0.10, 0.90, "%.2f"
         )
         if abs(new_target - self.target_filling) > 0.01:
             self.target_filling = new_target
@@ -261,16 +278,19 @@ class CDFTInteractiveViewer:
 
         # 7. Real-time Filling and Reward Charts
         draw_realtime_curve(
-            x + 12, py, w - 24, 100,
-            self.history_fillings, title="Pore Filling theta(t)",
-            color=pr.Color(50, 220, 120, 255), ref_val=self.env.target_filling
+            x + 12,
+            py,
+            w - 24,
+            100,
+            self.history_fillings,
+            title="Pore Filling theta(t)",
+            color=pr.Color(50, 220, 120, 255),
+            ref_val=self.env.target_filling,
         )
         py += 108
 
         draw_realtime_curve(
-            x + 12, py, w - 24, 100,
-            self.history_rewards, title="RL Step Reward R(t)",
-            color=pr.Color(240, 70, 70, 255)
+            x + 12, py, w - 24, 100, self.history_rewards, title="RL Step Reward R(t)", color=pr.Color(240, 70, 70, 255)
         )
 
     def main_loop(self):

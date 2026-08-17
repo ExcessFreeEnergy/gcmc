@@ -1,19 +1,18 @@
 """Unit tests for pair potential functions and Gaussian-truncated Coulomb splitting."""
 
 import numpy as np
-import pytest
-from scipy.special import erfc
 import scipy.constants as const
+from scipy.special import erfc
 
+from gcmc.v1.constants import very_large_number
 from gcmc.v1.potentials import (
+    HardSphereCoulombPotential,
+    HardSpherePotential,
+    LennardJonesCoulombPotential,
     LennardJonesPotential,
     WCAPotential,
-    HardSpherePotential,
-    HardSphereCoulombPotential,
-    LennardJonesCoulombPotential,
     initialize_potentials,
 )
-from gcmc.v1.constants import very_large_number
 
 
 def test_lennard_jones_potential():
@@ -92,29 +91,29 @@ def test_lennard_jones_coulomb_potential():
 
 def test_initialize_potentials():
     config = {
-        'potential_pairs': {
-            'A_A': {
-                'type': 'LJ+C',
-                'epsilon_lj': 0.44,
-                'sigma_lj': 3.0,
-                'rc': 10.0,
-                'epsilon_c': 1.0,
-                'q1': 0.0,
-                'q2': 0.0,
-                'kappa_inv': 4.5,
+        "potential_pairs": {
+            "A_A": {
+                "type": "LJ+C",
+                "epsilon_lj": 0.44,
+                "sigma_lj": 3.0,
+                "rc": 10.0,
+                "epsilon_c": 1.0,
+                "q1": 0.0,
+                "q2": 0.0,
+                "kappa_inv": 4.5,
             },
-            'H_O': {
-                'type': 'HS+C',
-                'diameter': 2.76,
-                'epsilon': 1.0,
-                'q1': 1.0,
-                'q2': -1.0,
-                'kappa_inv': 5.0,
+            "H_O": {
+                "type": "HS+C",
+                "diameter": 2.76,
+                "epsilon": 1.0,
+                "q1": 1.0,
+                "q2": -1.0,
+                "kappa_inv": 5.0,
             },
         }
     }
     p_dict = initialize_potentials(config)
-    assert 'A_A' in p_dict
-    assert isinstance(p_dict['A_A'], LennardJonesCoulombPotential)
-    assert 'H_O' in p_dict
-    assert isinstance(p_dict['H_O'], HardSphereCoulombPotential)
+    assert "A_A" in p_dict
+    assert isinstance(p_dict["A_A"], LennardJonesCoulombPotential)
+    assert "H_O" in p_dict
+    assert isinstance(p_dict["H_O"], HardSphereCoulombPotential)

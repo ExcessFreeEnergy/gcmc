@@ -2,9 +2,8 @@
 Immediate-mode scientific UI widgets for Raylib (pyray).
 """
 
-import math
-import pyray as pr
 import numpy as np
+import pyray as pr
 
 # Scientific Dark Theme Palette
 COLOR_BG = pr.Color(18, 22, 28, 255)
@@ -91,7 +90,9 @@ def draw_button(x, y, w, h, text, is_active=False):
     pr.draw_rectangle_lines_ex(pr.Rectangle(x, y, w, h), 1, COLOR_BORDER)
 
     text_w = pr.measure_text(text, 14)
-    pr.draw_text(text, x + (w - text_w) // 2, y + (h - 14) // 2, 14, pr.WHITE if (is_active or is_hover) else COLOR_TEXT)
+    pr.draw_text(
+        text, x + (w - text_w) // 2, y + (h - 14) // 2, 14, pr.WHITE if (is_active or is_hover) else COLOR_TEXT
+    )
     return clicked
 
 

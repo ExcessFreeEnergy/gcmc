@@ -1,15 +1,13 @@
 """End-to-end regression test for linear dipolar Stockmayer fluid (ABC molecule)."""
 
-import os
 import gzip
+import os
+
 import numpy as np
-import pytest
 
 from gcmc.v1 import (
-    load_config,
-    initialize_potentials,
-    initialize_external_potentials,
     GCMC_FF_ABC_Simulation,
+    load_config,
 )
 from gcmc.v1.main import run_simulation_job
 
@@ -29,7 +27,7 @@ def test_dipole_fast_simulation(run_dir):
     # Verify logfile
     log_file = os.path.join(work_dir, "gcmc.log")
     assert os.path.exists(log_file)
-    with open(log_file, 'r') as f:
+    with open(log_file, "r") as f:
         lines = f.readlines()
     assert len(lines) > 2  # Header + multiple step logs
     assert lines[0].strip() == "Step Total_number Energy"
@@ -37,7 +35,7 @@ def test_dipole_fast_simulation(run_dir):
     # Verify output.xyz.gz
     xyz_file = os.path.join(work_dir, "output.xyz.gz")
     assert os.path.exists(xyz_file)
-    with gzip.open(xyz_file, 'rt') as f:
+    with gzip.open(xyz_file, "rt") as f:
         content = f.read()
     assert len(content) > 0
     assert "Properties=species:S:1:pos:R:3" in content

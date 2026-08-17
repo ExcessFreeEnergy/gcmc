@@ -1,7 +1,6 @@
 """Unit tests for rigid molecular geometry transformations, rotations, and PBC handling."""
 
 import numpy as np
-import pytest
 
 from gcmc.v1 import tools as tls
 

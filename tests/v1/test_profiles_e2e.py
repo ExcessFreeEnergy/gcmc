@@ -1,14 +1,14 @@
 """End-to-end test for density profile calculation and post-processing tools."""
 
 import os
+
 import numpy as np
-import pytest
 
 from gcmc.v1 import load_config
 from gcmc.v1.main import run_simulation_job
 from gcmc.v1.utils.get_density_profile import (
-    read_extended_xyz,
     average_density_profiles,
+    read_extended_xyz,
 )
 
 
@@ -29,16 +29,14 @@ def test_density_profile_extraction(run_dir):
     assert len(lattice_vectors_list) > 0
 
     # Compute density profile
-    bin_centers, avg_density = average_density_profiles(
-        positions_list, lattice_vectors_list, bins=50
-    )
+    bin_centers, avg_density = average_density_profiles(positions_list, lattice_vectors_list, bins=50)
 
     assert len(bin_centers) == 50
-    assert 'A' in avg_density
-    assert 'B' in avg_density
-    assert 'C' in avg_density
+    assert "A" in avg_density
+    assert "B" in avg_density
+    assert "C" in avg_density
 
-    density_A = avg_density['A']
+    density_A = avg_density["A"]
     assert len(density_A) == 50
     assert np.all(np.isfinite(density_A))
     assert np.any(density_A > 0.0)

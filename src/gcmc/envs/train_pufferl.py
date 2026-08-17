@@ -2,16 +2,16 @@
 High-throughput PPO / PuffeRL training for cDFT fluid manipulation.
 """
 
-import os
-import sys
-import time
 import argparse
+import os
+import time
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from gcmc.envs.cdft_puffer import BatchedCdftVecEnv, CDFT_OBS_SIZE, CDFT_NUM_ACTIONS
+from gcmc.envs.cdft_puffer import CDFT_NUM_ACTIONS, CDFT_OBS_SIZE, BatchedCdftVecEnv
 
 
 def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
@@ -24,6 +24,7 @@ class CdftContinuousPolicy(nn.Module):
     """
     Gaussian Actor-Critic policy for continuous fluid manipulation.
     """
+
     def __init__(self, obs_dim=CDFT_OBS_SIZE, act_dim=CDFT_NUM_ACTIONS, hidden_dim=128):
         super().__init__()
         self.actor = nn.Sequential(
@@ -73,7 +74,7 @@ def train_cdft_puffer(
     max_grad_norm=0.5,
     update_epochs=4,
     num_minibatches=4,
-    device="cuda" if torch.cuda.is_available() else "cpu"
+    device="cuda" if torch.cuda.is_available() else "cpu",
 ):
     print(f"[PuffeRL] Initializing {num_envs} vectorized cDFT environments on device: {device}...")
     vec_env = BatchedCdftVecEnv(num_envs=num_envs)
@@ -98,7 +99,9 @@ def train_cdft_puffer(
     global_step = 0
     t_start = time.perf_counter()
 
-    print(f"[PuffeRL] Starting training: {num_iterations} iterations ({update_epochs} epochs/iter), target timesteps = {total_timesteps:,}")
+    print(
+        f"[PuffeRL] Starting training: {num_iterations} iterations ({update_epochs} epochs/iter), target timesteps = {total_timesteps:,}"
+    )
 
     for iteration in range(1, num_iterations + 1):
         # 1. Rollout phase
@@ -190,9 +193,13 @@ def train_cdft_puffer(
             elapsed = time.perf_counter() - t_start
             sps = global_step / elapsed
             avg_rew = rew_tensor.mean().item()
-            print(f"Iter {iteration:3d}/{num_iterations} | Step: {global_step:7,d} | SPS: {sps:,.0f} | Avg Rew: {avg_rew:6.3f} | Loss: {avg_loss:6.4f}")
+            print(
+                f"Iter {iteration:3d}/{num_iterations} | Step: {global_step:7,d} | SPS: {sps:,.0f} | Avg Rew: {avg_rew:6.3f} | Loss: {avg_loss:6.4f}"
+            )
 
-    print(f"\n[PuffeRL] Training complete in {time.perf_counter() - t_start:.2f}s! Final SPS: {global_step / (time.perf_counter() - t_start):,.0f}")
+    print(
+        f"\n[PuffeRL] Training complete in {time.perf_counter() - t_start:.2f}s! Final SPS: {global_step / (time.perf_counter() - t_start):,.0f}"
+    )
     return policy
 
 
@@ -209,12 +216,15 @@ if __name__ == "__main__":
     parser.add_argument("--num_envs", type=int, default=128, help="Number of parallel environments.")
     parser.add_argument("--total_timesteps", type=int, default=300000, help="Total environment timesteps.")
     parser.add_argument("--lr", type=float, default=3e-4, help="Learning rate.")
-    parser.add_argument("--save_path", type=str, default="cdft_policy.pt", help="Path to save trained policy checkpoint.")
+    parser.add_argument(
+        "--save_path", type=str, default="cdft_policy.pt", help="Path to save trained policy checkpoint."
+    )
     parser.add_argument("-i", "--interactive", action="store_true", default=False, help="Launch interactive Raylib UI.")
     args = parser.parse_args()
 
     if args.interactive:
         from gcmc.ui import launch_interactive_cdft_rl
+
         launch_interactive_cdft_rl(policy_path=args.save_path if os.path.exists(args.save_path) else None)
     else:
         policy = train_cdft_puffer(num_envs=args.num_envs, total_timesteps=args.total_timesteps, learning_rate=args.lr)
