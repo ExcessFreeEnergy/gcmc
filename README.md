@@ -124,6 +124,18 @@ gcmc -in path/to/simulation_dir --engine v2
 gcmc -in path/to/simulation_dir --engine v1
 ```
 
+#### Example Runs:
+
+```bash
+# 1. Neutral Stockmayer Dipole Fluid in an Inhomogeneous Cosine Potential
+uv run gcmc -in tests/v1/test_configs/dipole_fast --engine v2
+# Runs MC steps on dipolar molecules subjected to a multi-harmonic electrostatic field phi(z) and repulsive 9-3 slit walls, calculating equilibrium particle density.
+
+# 2. SPC/E Water Model with Screened Coulomb Interactions
+uv run gcmc -in tests/v1/test_configs/h2o_fast --engine v2
+# Simulates 3-site SPC/E water molecules at 700 K with short-range Gaussian-truncated electrostatics (kappa^-1 = 4.5 A) and grand canonical insertion/deletion.
+```
+
 ### Reinforcement Learning with PufferLib
 
 Train an Actor-Critic policy to autonomously manipulate fluid density and stabilize nanoconfined pore filling via dielectrocapillarity:
