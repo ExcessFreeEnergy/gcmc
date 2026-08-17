@@ -19,6 +19,7 @@ from .widgets import (
     draw_panel,
     draw_realtime_curve,
     draw_slider,
+    draw_toggle,
 )
 
 
@@ -45,9 +46,10 @@ class CDFTInteractiveViewer:
         if self.policy_path and os.path.exists(self.policy_path):
             self.load_policy(self.policy_path)
 
-        # Manual control parameters
-        self.phi_0 = 15.0  # Volts
+        # Default thermodynamic and field parameters
+        self.phi_0 = 0.0  # Voltage amplitude
         self.mode_m = 1.0  # Spatial harmonic
+        self.override_mode_m = False  # Lock & override harmonic mode manually
         self.v_bias = 0.0  # Bias offset
         self.target_filling = self.env.target_filling
 
@@ -91,10 +93,16 @@ class CDFTInteractiveViewer:
                 obs_t = torch.tensor(self.obs, dtype=torch.float32).unsqueeze(0)
                 action = self.policy(obs_t).squeeze(0).numpy()
                 action = np.clip(action, -1.0, 1.0)
+            if self.override_mode_m:
+                d_m = float(np.clip((self.mode_m - self.env.mode_m) / 0.5, -1.0, 1.0))
+                action[1] = d_m
             self.obs, reward, terminated, truncated, self.info = self.env.step(action)
+            if self.override_mode_m:
+                self.env.mode_m = float(self.mode_m)
             # Update UI sliders from environment state
             self.phi_0 = float(self.env.phi_0)
-            self.mode_m = float(round(self.env.mode_m))
+            if not self.override_mode_m:
+                self.mode_m = float(round(self.env.mode_m))
             self.v_bias = float(self.env.v_bias)
         else:
             # Action computed from manual slider adjustments
@@ -253,9 +261,17 @@ class CDFTInteractiveViewer:
         )
         py += 44
 
-        # 4. Spatial Mode m Slider
-        self.mode_m = draw_slider(x + 14, py, w - 28, 30, "Spatial Harmonic Mode m", self.mode_m, 1.0, 4.0, "m = %d")
-        self.mode_m = round(self.mode_m)
+        # 4. Spatial Mode m Slider & Manual Override Toggle
+        self.override_mode_m = draw_toggle(
+            x + 14, py, w - 28, 22, "Override & Lock Harmonic Mode m", self.override_mode_m
+        )
+        py += 28
+
+        mode_label = "Spatial Harmonic Mode m" + (" [LOCKED]" if self.override_mode_m else " [AUTO]")
+        new_mode = draw_slider(x + 14, py, w - 28, 30, mode_label, self.mode_m, 1.0, 4.0, "m = %d")
+        self.mode_m = round(new_mode)
+        if self.override_mode_m:
+            self.env.mode_m = float(self.mode_m)
         py += 44
 
         # 5. DC Bias Slider
