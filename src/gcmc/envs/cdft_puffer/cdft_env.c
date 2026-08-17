@@ -57,9 +57,9 @@ void c_step(CdftEnv* env) {
     float d_m = env->actions[1] * 0.5f;
     float d_vbias = env->actions[2] * 1.5f;
 
-    env->phi0 = clampf(env->phi0 + d_phi0, -38.2f, 38.2f);
+    env->phi0 = clampf(env->phi0 + d_phi0, -50.0f, 50.0f);
     env->mode_m = clampf(env->mode_m + d_m, 1.0f, 4.0f);
-    env->v_bias = clampf(env->v_bias + d_vbias, -10.0f, 10.0f);
+    env->v_bias = clampf(env->v_bias + d_vbias, -20.0f, 20.0f);
 
     // Fast Euler-Lagrange Picard cDFT Relaxation Step
     float dz = env->L_slit / (float)CDFT_GRID_SIZE;
@@ -75,8 +75,8 @@ void c_step(CdftEnv* env) {
         float arg = 2.0f * PI_F * env->mode_m * z / env->L_slit;
 
         // External field: cosine wave potential + bias
-        float phi_z = (env->phi0 / env->mode_m) * cosf(arg) + env->v_bias;
-        float e_field = (2.0f * PI_F * env->phi0 / env->L_slit) * sinf(arg);
+        float phi_z = env->phi0 * cosf(arg) + env->v_bias;
+        float e_field = (2.0f * PI_F * env->mode_m * env->phi0 / env->L_slit) * sinf(arg);
 
         power_cost += e_field * e_field * dz;
 
@@ -93,9 +93,9 @@ void c_step(CdftEnv* env) {
             v_wall += ((2.0f / 15.0f) * r3 * r3 * r3 - r3);
         }
 
-        // Dielectrocapillary coupling: body force ~ grad(E^2) produces spatial waves
-        float c1_diel = 0.020f * (e_field * e_field);
-        float mu_eff = beta_mu - v_wall + c1_diel - 2.8f * (env->rho[i] - 0.5f);
+        // Dielectrocapillary coupling: body force ~ grad(E^2) + gate bias field shift
+        float c1_diel = 0.006f * (e_field * e_field);
+        float mu_eff = beta_mu - v_wall + c1_diel + 0.08f * env->v_bias - 2.8f * (env->rho[i] - 0.5f);
 
         // Fermi-Dirac / logistic density functional response: rho_eq in [0, 1]
         float exp_val = expf(clampf(-mu_eff, -15.0f, 15.0f));
@@ -108,11 +108,13 @@ void c_step(CdftEnv* env) {
         sum_rho += env->rho[i];
     }
 
+    power_cost += 0.5f * (env->v_bias * env->v_bias);
+
     float avg_theta = sum_rho / (float)CDFT_GRID_SIZE;
     float tracking_error = fabsf(avg_theta - env->target_theta);
 
     // Smooth Reward Function: Quadratic tracking penalty + power penalty + precision bonus
-    float reward = -8.0f * (tracking_error * tracking_error) - 0.0001f * power_cost;
+    float reward = -10.0f * (tracking_error * tracking_error) - 0.0004f * power_cost;
 
     if (tracking_error < 0.025f) {
         reward += 1.0f;

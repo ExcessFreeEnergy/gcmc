@@ -201,7 +201,7 @@ class CDFTInteractiveViewer:
         m = self.env.mode_m
         phi_0 = self.env.phi_0
         bias = self.env.v_bias
-        phi_z = (phi_0 / m) * np.cos(2.0 * np.pi * m * z / Lz) + bias
+        phi_z = phi_0 * np.cos(2.0 * np.pi * m * z / Lz) + bias
 
         draw_realtime_curve(
             x + 10,
@@ -249,7 +249,7 @@ class CDFTInteractiveViewer:
 
         # 3. Voltage Amplitude Slider
         self.phi_0 = draw_slider(
-            x + 14, py, w - 28, 30, "Voltage Amplitude phi_0 (V)", self.phi_0, -38.2, 38.2, "%.1f V"
+            x + 14, py, w - 28, 30, "Voltage Amplitude phi_0 (V)", self.phi_0, -50.0, 50.0, "%.1f V"
         )
         py += 44
 
@@ -260,7 +260,7 @@ class CDFTInteractiveViewer:
 
         # 5. DC Bias Slider
         self.v_bias = draw_slider(
-            x + 14, py, w - 28, 30, "DC Bias Offset V_bias (V)", self.v_bias, -10.0, 10.0, "%.1f V"
+            x + 14, py, w - 28, 30, "DC Bias Offset V_bias (V)", self.v_bias, -20.0, 20.0, "%.1f V"
         )
         py += 44
 
