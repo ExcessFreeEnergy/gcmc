@@ -138,10 +138,21 @@ uv run gcmc -in tests/v1/test_configs/h2o_fast --engine v2
 
 ### Reinforcement Learning with PufferLib
 
-Train an Actor-Critic policy to autonomously manipulate fluid density and stabilize nanoconfined pore filling via dielectrocapillarity:
+Inspired by the theoretical proposals for programmable fluid control and neuromorphic nanofluidics in **Bui & Cox (2025)**:
+
+> *"Such an ability to tailor hysteresis introduces a new level of programmability in nanofluidic systems, where EFGs can potentially serve as an external control parameter for dynamically altering adsorption and desorption rates... akin to synaptic plasticity in neuromorphic nanofluidic circuits."*
+>
+> *"A natural possible progression from this work is to augment our first-principles framework for electromechanics with dynamical extensions... opening a promising route toward a microscopic understanding of how EFGs impact non-equilibrium processes."*
+
+#### How We Realized It:
+While the paper explored static equilibrium isotherms under fixed electric fields, we extended this framework into an active, real-time closed-loop control system:
+- **Zero-Copy C Ocean Environment (`cdft_env.c`)**: High-throughput vectorized simulation of slit-pore dielectrocapillarity and density functional relaxation.
+- **Continuous Actor-Critic Policy**: Gaussian policy trained via PPO to dynamically modulate applied voltage amplitudes ($\phi_0$), spatial harmonic modes ($m$), and DC bias offsets ($V_{\rm bias}$) to target and stabilize pore filling fractions ($\theta^*$).
+
+#### Training Command:
 
 ```bash
-# Train on 128 vectorized environments for 1,000,000 steps (~18 seconds on GPU)
+# Train on 128 vectorized environments for 1,000,000 steps (~18 seconds on NVIDIA RTX 4090)
 uv run python -m gcmc.envs.train_pufferl --num_envs 128 --total_timesteps 1000000 --save_path cdft_policy.pt
 ```
 
