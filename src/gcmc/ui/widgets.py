@@ -123,9 +123,22 @@ def draw_toggle(x, y, w, h, label, state):
     return state
 
 
-def draw_realtime_curve(x, y, w, h, y_data, title="", x_label="", y_label="", color=None, ref_val=None):
+def draw_realtime_curve(
+    x,
+    y,
+    w,
+    h,
+    y_data,
+    title="",
+    x_label="",
+    y_label="",
+    color=None,
+    ref_val=None,
+    fixed_min=None,
+    fixed_max=None,
+):
     """
-    Draws a 2D line plot with axes, auto-scaling, and grid lines.
+    Draws a 2D line plot with axes, auto-scaling (or fixed bounds), and grid lines.
     """
     if color is None:
         color = COLOR_ACCENT
@@ -140,11 +153,16 @@ def draw_realtime_curve(x, y, w, h, y_data, title="", x_label="", y_label="", co
     if len(y_data) < 2:
         return
 
-    min_v = float(np.min(y_data))
-    max_v = float(np.max(y_data))
-    if abs(max_v - min_v) < 1e-6:
-        max_v += 1.0
-        min_v -= 1.0
+    if fixed_min is not None and fixed_max is not None:
+        min_v = float(fixed_min)
+        max_v = float(fixed_max)
+    else:
+        min_v = float(np.min(y_data))
+        max_v = float(np.max(y_data))
+        if abs(max_v - min_v) < 0.2:
+            mid = (max_v + min_v) / 2.0
+            min_v = mid - 0.2
+            max_v = mid + 0.2
 
     margin_top = 22
     margin_bottom = 18

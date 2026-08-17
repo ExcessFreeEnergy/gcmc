@@ -145,7 +145,7 @@ class CDFTInteractiveViewer:
 
         for i in range(self.nz):
             val = float(rho[i])
-            norm_val = max(0.0, min(1.0, val / 0.040))  # Saturation at 0.04 molecules/A^3
+            norm_val = max(0.0, min(1.0, val))
 
             # Interpolate from vapor light blue to deep liquid blue
             r_col = int(25 + (1.0 - norm_val) * 40)
@@ -184,7 +184,7 @@ class CDFTInteractiveViewer:
         py = y + 36
         plot_h = (h - 50) // 2
 
-        # 1. Density Profile rho(z)
+        # 1. Density Profile rho(z) in [0.0, 1.0]
         rho = self.env.density_profile
         draw_realtime_curve(
             x + 10,
@@ -192,8 +192,10 @@ class CDFTInteractiveViewer:
             w - 20,
             plot_h,
             rho,
-            title="Fluid Density Profile rho(z) [molecules / A^3]",
+            title="Fluid Density Profile rho(z) [normalized liquid fraction]",
             color=pr.Color(50, 180, 255, 255),
+            fixed_min=0.0,
+            fixed_max=1.0,
         )
 
         py += plot_h + 8
@@ -286,6 +288,8 @@ class CDFTInteractiveViewer:
             title="Pore Filling theta(t)",
             color=pr.Color(50, 220, 120, 255),
             ref_val=self.env.target_filling,
+            fixed_min=0.0,
+            fixed_max=1.0,
         )
         py += 108
 
