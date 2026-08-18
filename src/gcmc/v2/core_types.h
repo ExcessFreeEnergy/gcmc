@@ -20,20 +20,42 @@ constexpr double KB_DEFAULT = 1.380649e-23;
 struct Vec3 {
     double x, y, z;
 
-    inline Vec3() : x(0.0), y(0.0), z(0.0) {}
-    inline Vec3(double _x, double _y, double _z) : x(_x), y(_y), z(_z) {}
+    Vec3() : x(0.0), y(0.0), z(0.0) {}
+    Vec3(double _x, double _y, double _z) : x(_x), y(_y), z(_z) {}
 
-    inline Vec3 operator+(const Vec3& o) const { return Vec3(x + o.x, y + o.y, z + o.z); }
-    inline Vec3 operator-(const Vec3& o) const { return Vec3(x - o.x, y - o.y, z - o.z); }
-    inline Vec3 operator*(double s) const { return Vec3(x * s, y * s, z * s); }
-    inline Vec3 operator/(double s) const { return Vec3(x / s, y / s, z / s); }
-    inline Vec3& operator+=(const Vec3& o) { x += o.x; y += o.y; z += o.z; return *this; }
-    inline Vec3& operator-=(const Vec3& o) { x -= o.x; y -= o.y; z -= o.z; return *this; }
+    Vec3 operator+(const Vec3& o) const {
+        return Vec3(x + o.x, y + o.y, z + o.z);
+    }
+    Vec3 operator-(const Vec3& o) const {
+        return Vec3(x - o.x, y - o.y, z - o.z);
+    }
+    Vec3 operator*(double s) const {
+        return Vec3(x * s, y * s, z * s);
+    }
+    Vec3 operator/(double s) const {
+        return Vec3(x / s, y / s, z / s);
+    }
+    Vec3& operator+=(const Vec3& o) {
+        x += o.x;
+        y += o.y;
+        z += o.z;
+        return *this;
+    }
+    Vec3& operator-=(const Vec3& o) {
+        x -= o.x;
+        y -= o.y;
+        z -= o.z;
+        return *this;
+    }
 
-    inline double norm_sq() const { return x * x + y * y + z * z; }
-    inline double norm() const { return std::sqrt(norm_sq()); }
+    double norm_sq() const {
+        return x * x + y * y + z * z;
+    }
+    double norm() const {
+        return std::sqrt(norm_sq());
+    }
 
-    inline Vec3 minimum_image(double lx, double ly, double lz) const {
+    Vec3 minimum_image(double lx, double ly, double lz) const {
         return Vec3(
             x - lx * std::round(x / lx),
             y - ly * std::round(y / ly),
@@ -41,7 +63,7 @@ struct Vec3 {
         );
     }
 
-    inline Vec3 wrap_pbc(double lx, double ly, double lz) const {
+    Vec3 wrap_pbc(double lx, double ly, double lz) const {
         return Vec3(
             x - lx * std::floor(x / lx),
             y - ly * std::floor(y / ly),
@@ -53,10 +75,10 @@ struct Vec3 {
 struct Quaternion {
     double w, x, y, z;
 
-    inline Quaternion() : w(1.0), x(0.0), y(0.0), z(0.0) {}
-    inline Quaternion(double _w, double _x, double _y, double _z) : w(_w), x(_x), y(_y), z(_z) {}
+    Quaternion() : w(1.0), x(0.0), y(0.0), z(0.0) {}
+    Quaternion(double _w, double _x, double _y, double _z) : w(_w), x(_x), y(_y), z(_z) {}
 
-    inline Quaternion operator*(const Quaternion& q) const {
+    Quaternion operator*(const Quaternion& q) const {
         return Quaternion(
             w * q.w - x * q.x - y * q.y - z * q.z,
             w * q.x + x * q.w + y * q.z - z * q.y,
@@ -65,8 +87,7 @@ struct Quaternion {
         );
     }
 
-    inline Vec3 rotate(const Vec3& v) const {
-        // v' = q * (0, v) * q_conj
+    Vec3 rotate(const Vec3& v) const {
         Quaternion p(0.0, v.x, v.y, v.z);
         Quaternion q_conj(w, -x, -y, -z);
         Quaternion res = (*this) * p * q_conj;
@@ -105,7 +126,9 @@ struct EwaldParams {
         prefactor = pref;
         self_energy_per_q2 = prefactor * alpha / std::sqrt(PI);
         k_vectors.clear();
-        if (mode != ElectrostaticsMode::LONG_RANGE_EWALD) return;
+        if (mode != ElectrostaticsMode::LONG_RANGE_EWALD) {
+            return;
+        }
 
         double volume = lx * ly * lz;
         double two_pi_lx = 2.0 * PI / lx;
@@ -115,15 +138,23 @@ struct EwaldParams {
         for (int nx = -kmax; nx <= kmax; ++nx) {
             for (int ny = -kmax; ny <= kmax; ++ny) {
                 for (int nz = 0; nz <= kmax; ++nz) {
-                    if (nz == 0 && ny < 0) continue;
-                    if (nz == 0 && ny == 0 && nx <= 0) continue;
-                    if (nx * nx + ny * ny + nz * nz > kmax * kmax) continue;
+                    if (nz == 0 && ny < 0) {
+                        continue;
+                    }
+                    if (nz == 0 && ny == 0 && nx <= 0) {
+                        continue;
+                    }
+                    if (nx * nx + ny * ny + nz * nz > kmax * kmax) {
+                        continue;
+                    }
 
                     double kx = nx * two_pi_lx;
                     double ky = ny * two_pi_ly;
                     double kz = nz * two_pi_lz;
                     double k_sq = kx * kx + ky * ky + kz * kz;
-                    if (k_sq < 1e-12) continue;
+                    if (k_sq < 1e-12) {
+                        continue;
+                    }
 
                     double weight = prefactor * (4.0 * PI / (volume * k_sq)) * std::exp(-k_sq / (4.0 * alpha * alpha));
                     k_vectors.push_back({kx, ky, kz, weight});
@@ -167,8 +198,10 @@ struct PairPotentialParams {
         }
     }
 
-    inline double calculate(double r) const {
-        if (r >= rc) return 0.0;
+    double calculate(double r) const {
+        if (r >= rc) {
+            return 0.0;
+        }
         switch (kind) {
             case PotentialKind::LJ: {
                 double r6 = std::pow(sigma_lj / r, 6.0);
@@ -177,18 +210,23 @@ struct PairPotentialParams {
             }
             case PotentialKind::WCA: {
                 double r_wca = std::pow(2.0, 1.0 / 6.0) * sigma_lj;
-                if (r >= r_wca) return 0.0;
+                if (r >= r_wca) {
+                    return 0.0;
+                }
                 double r6 = std::pow(sigma_lj / r, 6.0);
                 double r12 = r6 * r6;
                 return 4.0 * epsilon_lj * (r12 - r6) + epsilon_lj;
             }
-            case PotentialKind::HS: {
-                return (r < sigma_lj) ? VERY_LARGE_NUMBER : 0.0;
-            }
-            case PotentialKind::HS_C: {
-                if (r < diameter) return VERY_LARGE_NUMBER;
+            case PotentialKind::HS:
+                if (r < sigma_lj) {
+                    return VERY_LARGE_NUMBER;
+                }
+                return 0.0;
+            case PotentialKind::HS_C:
+                if (r < diameter) {
+                    return VERY_LARGE_NUMBER;
+                }
                 return prefactor * q1 * q2 * std::erfc(r / kappa_inv) / r;
-            }
             case PotentialKind::LJ_C: {
                 double r6 = std::pow(sigma_lj / r, 6.0);
                 double r12 = r6 * r6;
@@ -244,25 +282,33 @@ struct ExternalPotentialParams {
         }
     }
 
-    inline double calculate(const Vec3& pos) const {
-        if (kind == ExternalPotentialKind::NONE) return 0.0;
+    double calculate(const Vec3& pos) const {
+        if (kind == ExternalPotentialKind::NONE) {
+            return 0.0;
+        }
 
         double x_coord = pos.x;
 
         if (kind == ExternalPotentialKind::WALL) {
-            if (x_coord < width || x_coord > L - width) return VERY_LARGE_NUMBER;
+            if (x_coord < width || x_coord > L - width) {
+                return VERY_LARGE_NUMBER;
+            }
             return 0.0;
         }
 
         if (kind == ExternalPotentialKind::SLIT) {
-            if (x_coord < low || x_coord > high) return VERY_LARGE_NUMBER;
+            if (x_coord < low || x_coord > high) {
+                return VERY_LARGE_NUMBER;
+            }
             return 0.0;
         }
 
         if (kind == ExternalPotentialKind::TRAINING_POTENTIAL_WITH_CHARGE_COS) {
             double bound_lo = (low > 0.0) ? low : (width / 2.0);
             double bound_hi = (high < L) ? high : (L - width / 2.0);
-            if (x_coord < bound_lo || x_coord > bound_hi) return VERY_LARGE_NUMBER;
+            if (x_coord < bound_lo || x_coord > bound_hi) {
+                return VERY_LARGE_NUMBER;
+            }
 
             double ratio = 2.0 * PI * x_coord / L;
 
@@ -302,7 +348,7 @@ struct ExternalPotentialParams {
 struct Molecule {
     Vec3 sites[3];
     int num_sites = 3;
-    int species_id = 0; // 0=A/O/H1, 1=B/H1/O, 2=C/H2
+    int species_id = 0;
 };
 
 } // namespace gcmc_v2

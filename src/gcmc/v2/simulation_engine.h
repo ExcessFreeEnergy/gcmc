@@ -10,22 +10,20 @@
 
 namespace gcmc_v2 {
 
-// Fast Xoroshiro128+ PRNG for Monte Carlo moves
 class FastRNG {
 private:
     uint64_t s[2];
 
-    static inline uint64_t rotl(const uint64_t x, int k) {
+    static uint64_t rotl(const uint64_t x, int k) {
         return (x << k) | (x >> (64 - k));
     }
 
 public:
-    inline FastRNG(uint64_t seed = 42) {
+    FastRNG(uint64_t seed = 42) {
         set_seed(seed);
     }
 
-    inline void set_seed(uint64_t seed) {
-        // Splitmix64 generator to initialize state
+    void set_seed(uint64_t seed) {
         uint64_t z = (seed + 0x9e3779b97f4a7c15ULL);
         z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
         z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
@@ -34,10 +32,12 @@ public:
         z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
         z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
         s[1] = z ^ (z >> 31);
-        if (s[0] == 0 && s[1] == 0) s[0] = 1;
+        if (s[0] == 0 && s[1] == 0) {
+            s[0] = 1;
+        }
     }
 
-    inline uint64_t next_u64() {
+    uint64_t next_u64() {
         const uint64_t s0 = s[0];
         uint64_t s1 = s[1];
         const uint64_t result = s0 + s1;
@@ -47,19 +47,20 @@ public:
         return result;
     }
 
-    // Uniform double in [0, 1)
-    inline double uniform() {
+    double uniform() {
         return (next_u64() >> 11) * (1.0 / 9007199254740992.0);
     }
 
-    inline double uniform_range(double min_val, double max_val) {
+    double uniform_range(double min_val, double max_val) {
         return min_val + uniform() * (max_val - min_val);
     }
 
-    inline int randint(int min_val, int max_val) { // [min, max] inclusive
-        if (min_val >= max_val) return min_val;
-        uint64_t range = static_cast<uint64_t>(max_val - min_val + 1);
-        return min_val + static_cast<int>(next_u64() % range);
+    int randint(int min_val, int max_val) {
+        if (min_val >= max_val) {
+            return min_val;
+        }
+        uint64_t range = (uint64_t)(max_val - min_val + 1);
+        return min_val + (int)(next_u64() % range);
     }
 };
 
@@ -102,25 +103,20 @@ public:
     std::string logfile_path = "gcmc.log";
     std::string init_config_file = "";
 
-    // Particles in simulation
     std::vector<Molecule> molecules;
     int number = 0;
-    int number1 = 0; // For TwoType
-    int number2 = 0; // For TwoType
+    int number1 = 0;
+    int number2 = 0;
 
-    // Pair Potentials: indexed by (site_i, site_j)
-    // 0=A/O/H1, 1=B/H1/O, 2=C/H2
     PairPotentialParams pair_potentials[3][3];
     ExternalPotentialParams ext_potentials[3];
 
-    // Long-Range Ewald Electrostatics
     ElectrostaticsMode electrostatics_mode = ElectrostaticsMode::SHORT_RANGE;
     EwaldParams ewald_params;
     struct ComplexDouble { double re, im; };
     std::vector<ComplexDouble> rho_k;
     double site_charges[3] = {0.0, 0.0, 0.0};
 
-    // RPM particle types
     std::string type1_name = "H";
     std::string type2_name = "O";
     double mu1 = -8.0;
@@ -156,7 +152,6 @@ public:
     void step_single_type();
     void step_two_type();
     void step_abc();
-    void step_h2o();
 
     void run_simulation();
     void run_simulation_no_energy();
@@ -166,11 +161,11 @@ public:
     void write_xyz_frame(gzFile gz_out, int step_num);
     void write_density_profile();
 
-    inline Vec3 wrap(const Vec3& v) const {
+    Vec3 wrap(const Vec3& v) const {
         return v.wrap_pbc(box_x, box_y, box_z);
     }
 
-    inline Vec3 min_image(const Vec3& v) const {
+    Vec3 min_image(const Vec3& v) const {
         return v.minimum_image(box_x, box_y, box_z);
     }
 };

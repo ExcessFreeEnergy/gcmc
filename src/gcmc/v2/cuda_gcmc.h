@@ -1,8 +1,8 @@
 #ifndef GCMC_V2_CUDA_GCMC_H
 #define GCMC_V2_CUDA_GCMC_H
 
-#include <cstdint>
-#include <vector>
+#include <stdint.h>
+#include <stdbool.h>
 
 namespace gcmc_v2 {
 
@@ -10,7 +10,7 @@ constexpr int MAX_MOLECULES_PER_BOX = 1024;
 constexpr int MAX_SITES_PER_MOL = 3;
 
 struct CUDAPairParams {
-    int kind; // 0=NONE, 1=LJ, 2=WCA, 3=HS, 4=HS_C, 5=LJ_C
+    int kind;
     float epsilon_lj;
     float sigma_lj;
     float rc;
@@ -39,7 +39,7 @@ struct CUDAEwaldKVector {
 };
 
 struct CUDABoxConfig {
-    int mol_type; // 0=NONE, 1=SINGLE, 2=TWO_TYPE, 3=ABC, 4=H2O
+    int mol_type;
     float box_x, box_y, box_z;
     float beta;
     float mu1, mu2;
@@ -48,7 +48,7 @@ struct CUDABoxConfig {
     float prob_insert, prob_delete, prob_displace, prob_rotate, prob_mutate;
     float global_rc;
 
-    int electrostatics_mode; // 0=SR (default), 1=LR Ewald
+    int electrostatics_mode;
     float ewald_alpha;
     float ewald_self_per_q2;
     int num_k_vectors;
@@ -68,7 +68,6 @@ struct CUDABoxOutput {
     float final_energy;
 };
 
-// Host API to launch batched CUDA Monte Carlo simulations
 extern "C" {
     bool cuda_is_available();
     int cuda_get_device_count();

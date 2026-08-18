@@ -13,12 +13,11 @@ import copy
 import os
 import shutil
 import tempfile
-import numpy as np
-import pytest
 
-from gcmc.v1 import load_config
+import numpy as np
+
 import gcmc.v2 as engine_v2
-from gcmc.lmft_baseline import compute_restructuring_potential_1d, stillinger_lovett_corrections
+from gcmc.v1 import load_config
 
 CONFIGS_DIR = os.path.join(os.path.dirname(__file__), "v1", "test_configs")
 

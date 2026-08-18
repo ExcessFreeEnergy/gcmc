@@ -98,7 +98,6 @@ def stillinger_lovett_corrections(T, rho_b, epsilon_diel, kappa=1.0 / 4.5, kB=1.
         dict: {'delta_U': ..., 'delta_P': ..., 'delta_mu': ...}
     """
     beta = 1.0 / (kB * T)
-    kappa3 = kappa**3
     sqrt_pi = np.sqrt(np.pi)
     eps_factor = (epsilon_diel - 1.0) / epsilon_diel
 

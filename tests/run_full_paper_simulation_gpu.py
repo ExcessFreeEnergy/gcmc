@@ -10,19 +10,12 @@ Executes the physical simulation series from Bui & Cox (2025) and OnlineData dir
 
 import copy
 import os
-import shutil
-import tempfile
 import time
+
 import numpy as np
 
 import gcmc.v2 as engine_v2
 from gcmc.v1 import load_config
-from gcmc.lmft_baseline import (
-    compute_restructuring_potential_1d,
-    compute_restructuring_field_1d,
-    stillinger_lovett_corrections,
-    CdftPicardSolver,
-)
 
 ONLINE_DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "online_data", "OnlineData")
 CONFIGS_DIR = os.path.join(os.path.dirname(__file__), "v1", "test_configs")
@@ -61,7 +54,9 @@ def run_series_a_bulk_response():
     results = engine_v2.run_batch_cuda(configs, num_steps=num_steps, equilibration_steps=5000)
     elapsed = time.perf_counter() - t0
 
-    print(f"Executed {len(configs)} GPU boxes x {num_steps} steps in {elapsed:.3f} s ({len(configs)*num_steps/elapsed:.1f} steps/s)")
+    print(
+        f"Executed {len(configs)} GPU boxes x {num_steps} steps in {elapsed:.3f} s ({len(configs) * num_steps / elapsed:.1f} steps/s)"
+    )
 
     for idx, e_val in enumerate(e_fields):
         r = results[idx]
@@ -107,7 +102,9 @@ def run_series_b_slab_confinement():
     results = engine_v2.run_batch_cuda(configs, num_steps=num_steps, equilibration_steps=5000)
     elapsed = time.perf_counter() - t0
 
-    print(f"Executed {len(configs)} Slab GPU boxes x {num_steps} steps in {elapsed:.3f} s ({len(configs)*num_steps/elapsed:.1f} steps/s)")
+    print(
+        f"Executed {len(configs)} Slab GPU boxes x {num_steps} steps in {elapsed:.3f} s ({len(configs) * num_steps / elapsed:.1f} steps/s)"
+    )
     for idx, Lz in enumerate(slab_widths):
         r = results[idx]
         print(f"  Slab Lz = {Lz:5.1f} A  |  Final N = {r['final_N']:3d}  |  Avg N = {r['avg_N']:6.2f}")

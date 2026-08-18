@@ -1,6 +1,7 @@
 #include "c_api.h"
 #include "simulation_engine.h"
 #include <cstring>
+#include <cassert>
 
 using namespace gcmc_v2;
 
@@ -15,6 +16,7 @@ void gcmc_v2_destroy(GCMCHandle handle) {
 }
 
 void gcmc_v2_set_thermo(GCMCHandle handle, double T, double kB, double mu) {
+    assert(handle != NULL);
     auto sim = static_cast<GCMCSimulationV2*>(handle);
     sim->T = T;
     sim->kB = kB;
@@ -22,6 +24,7 @@ void gcmc_v2_set_thermo(GCMCHandle handle, double T, double kB, double mu) {
 }
 
 void gcmc_v2_set_box(GCMCHandle handle, double lx, double ly, double lz, double rc) {
+    assert(handle != NULL);
     auto sim = static_cast<GCMCSimulationV2*>(handle);
     sim->box_x = lx;
     sim->box_y = ly;
@@ -31,6 +34,7 @@ void gcmc_v2_set_box(GCMCHandle handle, double lx, double ly, double lz, double 
 }
 
 void gcmc_v2_set_steps(GCMCHandle handle, int max_steps, int eq_steps, int out_interval, bool print_energy) {
+    assert(handle != NULL);
     auto sim = static_cast<GCMCSimulationV2*>(handle);
     sim->max_steps = max_steps;
     sim->equilibration_steps = eq_steps;
@@ -39,6 +43,7 @@ void gcmc_v2_set_steps(GCMCHandle handle, int max_steps, int eq_steps, int out_i
 }
 
 void gcmc_v2_set_molecule_type(GCMCHandle handle, int mol_type, double bond_length, double maxdispl) {
+    assert(handle != NULL);
     auto sim = static_cast<GCMCSimulationV2*>(handle);
     sim->mol_type = static_cast<MoleculeType>(mol_type);
     sim->bond_length = bond_length;
@@ -46,6 +51,7 @@ void gcmc_v2_set_molecule_type(GCMCHandle handle, int mol_type, double bond_leng
 }
 
 void gcmc_v2_set_weights(GCMCHandle handle, double w_ins, double w_del, double w_disp, double w_rot, double w_mut, double w_swp) {
+    assert(handle != NULL);
     auto sim = static_cast<GCMCSimulationV2*>(handle);
     sim->weight_insert = w_ins;
     sim->weight_delete = w_del;
@@ -56,6 +62,7 @@ void gcmc_v2_set_weights(GCMCHandle handle, double w_ins, double w_del, double w
 }
 
 void gcmc_v2_set_paths(GCMCHandle handle, const char* folder, const char* logfile, const char* output_xyz) {
+    assert(handle != NULL);
     auto sim = static_cast<GCMCSimulationV2*>(handle);
     sim->input_folder = folder ? folder : ".";
     sim->logfile_path = logfile ? logfile : "gcmc.log";
@@ -69,12 +76,13 @@ void gcmc_v2_set_pair_potential(
     double eps_lj, double sig_lj, double rc,
     double eps_c, double q1, double q2, double kappa_inv, double diameter
 ) {
-    auto sim = static_cast<GCMCSimulationV2*>(handle);
-    if (site1 < 0 || site1 >= 3 || site2 < 0 || site2 >= 3) return;
+    assert(handle != NULL);
+    assert(site1 >= 0 && site1 < 3);
+    assert(site2 >= 0 && site2 < 3);
 
+    auto sim = static_cast<GCMCSimulationV2*>(handle);
     PairPotentialParams& p = sim->pair_potentials[site1][site2];
     p.kind = static_cast<PotentialKind>(kind);
-    // Convert kcal/mol to Joules for LJ+C
     if (p.kind == PotentialKind::LJ_C) {
         p.epsilon_lj = eps_lj * 4184.0 / AVOGADRO;
     } else {
@@ -89,7 +97,6 @@ void gcmc_v2_set_pair_potential(
     p.diameter = diameter;
     p.init();
 
-    // Symmetrize
     sim->pair_potentials[site2][site1] = p;
 }
 
@@ -103,9 +110,10 @@ void gcmc_v2_set_external_potential_cos(
     double q_A1, double q_A2, double q_A3, double q_A4,
     double q_phi1, double q_phi2, double q_phi3, double q_phi4
 ) {
-    auto sim = static_cast<GCMCSimulationV2*>(handle);
-    if (site < 0 || site >= 3) return;
+    assert(handle != NULL);
+    assert(site >= 0 && site < 3);
 
+    auto sim = static_cast<GCMCSimulationV2*>(handle);
     ExternalPotentialParams& ep = sim->ext_potentials[site];
     ep.kind = ExternalPotentialKind::TRAINING_POTENTIAL_WITH_CHARGE_COS;
     ep.low = low;
@@ -116,16 +124,30 @@ void gcmc_v2_set_external_potential_cos(
     ep.sigma = sig;
     ep.cutoff = cutoff;
     ep.q = q;
-    ep.A1 = A1 * kb_t; ep.A2 = A2 * kb_t; ep.A3 = A3 * kb_t; ep.A4 = A4 * kb_t;
-    ep.phi1 = phi1; ep.phi2 = phi2; ep.phi3 = phi3; ep.phi4 = phi4;
-    ep.q_A1 = q_A1 * kb_t; ep.q_A2 = q_A2 * kb_t; ep.q_A3 = q_A3 * kb_t; ep.q_A4 = q_A4 * kb_t;
-    ep.q_phi1 = q_phi1; ep.q_phi2 = q_phi2; ep.q_phi3 = q_phi3; ep.q_phi4 = q_phi4;
+    ep.A1 = A1 * kb_t;
+    ep.A2 = A2 * kb_t;
+    ep.A3 = A3 * kb_t;
+    ep.A4 = A4 * kb_t;
+    ep.phi1 = phi1;
+    ep.phi2 = phi2;
+    ep.phi3 = phi3;
+    ep.phi4 = phi4;
+    ep.q_A1 = q_A1 * kb_t;
+    ep.q_A2 = q_A2 * kb_t;
+    ep.q_A3 = q_A3 * kb_t;
+    ep.q_A4 = q_A4 * kb_t;
+    ep.q_phi1 = q_phi1;
+    ep.q_phi2 = q_phi2;
+    ep.q_phi3 = q_phi3;
+    ep.q_phi4 = q_phi4;
     ep.init();
 }
 
 void gcmc_v2_set_external_potential_slit(GCMCHandle handle, int site, double low, double high) {
+    assert(handle != NULL);
+    assert(site >= 0 && site < 3);
+
     auto sim = static_cast<GCMCSimulationV2*>(handle);
-    if (site < 0 || site >= 3) return;
     ExternalPotentialParams& ep = sim->ext_potentials[site];
     ep.kind = ExternalPotentialKind::SLIT;
     ep.low = low;
@@ -133,8 +155,10 @@ void gcmc_v2_set_external_potential_slit(GCMCHandle handle, int site, double low
 }
 
 void gcmc_v2_set_external_potential_none(GCMCHandle handle, int site) {
+    assert(handle != NULL);
+    assert(site >= 0 && site < 3);
+
     auto sim = static_cast<GCMCSimulationV2*>(handle);
-    if (site < 0 || site >= 3) return;
     sim->ext_potentials[site].kind = ExternalPotentialKind::NONE;
 }
 
@@ -144,8 +168,10 @@ void gcmc_v2_add_linear_segment(
     double Va, double Vb, double xa, double xb,
     bool is_charge
 ) {
+    assert(handle != NULL);
+    assert(site >= 0 && site < 3);
+
     auto sim = static_cast<GCMCSimulationV2*>(handle);
-    if (site < 0 || site >= 3) return;
     double kb_t = sim->kB * sim->T;
     LinearPotentialSegment seg{Va * kb_t, Vb * kb_t, xa, xb};
     if (is_charge) {
@@ -161,6 +187,7 @@ void gcmc_v2_add_molecule_3site(
     double x1, double y1, double z1,
     double x2, double y2, double z2
 ) {
+    assert(handle != NULL);
     auto sim = static_cast<GCMCSimulationV2*>(handle);
     Molecule m;
     m.num_sites = 3;
@@ -168,7 +195,7 @@ void gcmc_v2_add_molecule_3site(
     m.sites[1] = Vec3(x1, y1, z1);
     m.sites[2] = Vec3(x2, y2, z2);
     sim->molecules.push_back(m);
-    sim->number = sim->molecules.size();
+    sim->number = (int)sim->molecules.size();
 }
 
 void gcmc_v2_add_molecule_1site(
@@ -176,15 +203,19 @@ void gcmc_v2_add_molecule_1site(
     int species_id,
     double x0, double y0, double z0
 ) {
+    assert(handle != NULL);
     auto sim = static_cast<GCMCSimulationV2*>(handle);
     Molecule m;
     m.num_sites = 1;
     m.species_id = species_id;
     m.sites[0] = Vec3(x0, y0, z0);
     sim->molecules.push_back(m);
-    sim->number = sim->molecules.size();
-    if (species_id == 0) sim->number1++;
-    else sim->number2++;
+    sim->number = (int)sim->molecules.size();
+    if (species_id == 0) {
+        sim->number1++;
+    } else {
+        sim->number2++;
+    }
 }
 
 void gcmc_v2_set_two_type_params(
@@ -193,6 +224,7 @@ void gcmc_v2_set_two_type_params(
     double mu1, double mu2,
     int nbins_x, int density_interval
 ) {
+    assert(handle != NULL);
     auto sim = static_cast<GCMCSimulationV2*>(handle);
     sim->type1_name = type1_name ? type1_name : "H";
     sim->type2_name = type2_name ? type2_name : "O";
@@ -210,6 +242,7 @@ void gcmc_v2_set_ewald(
     double pref,
     double q0, double q1, double q2
 ) {
+    assert(handle != NULL);
     auto sim = static_cast<GCMCSimulationV2*>(handle);
     sim->electrostatics_mode = static_cast<ElectrostaticsMode>(mode);
     sim->ewald_params.mode = sim->electrostatics_mode;
@@ -222,68 +255,67 @@ void gcmc_v2_set_ewald(
 }
 
 void gcmc_v2_set_seed(GCMCHandle handle, uint64_t seed) {
+    assert(handle != NULL);
     auto sim = static_cast<GCMCSimulationV2*>(handle);
     sim->rng.set_seed(seed);
 }
 
 double gcmc_v2_total_energy(GCMCHandle handle) {
+    assert(handle != NULL);
     auto sim = static_cast<GCMCSimulationV2*>(handle);
     return sim->total_energy();
 }
 
 int gcmc_v2_get_number(GCMCHandle handle) {
+    assert(handle != NULL);
     auto sim = static_cast<GCMCSimulationV2*>(handle);
     return sim->number;
 }
 
 int gcmc_v2_get_number1(GCMCHandle handle) {
+    assert(handle != NULL);
     auto sim = static_cast<GCMCSimulationV2*>(handle);
     return sim->number1;
 }
 
 int gcmc_v2_get_number2(GCMCHandle handle) {
+    assert(handle != NULL);
     auto sim = static_cast<GCMCSimulationV2*>(handle);
     return sim->number2;
 }
 
 void gcmc_v2_run(GCMCHandle handle) {
+    assert(handle != NULL);
     auto sim = static_cast<GCMCSimulationV2*>(handle);
     sim->run_simulation();
 }
 
 void gcmc_v2_run_no_energy(GCMCHandle handle) {
+    assert(handle != NULL);
     auto sim = static_cast<GCMCSimulationV2*>(handle);
     sim->run_simulation_no_energy();
 }
 
 void gcmc_v2_step(GCMCHandle handle) {
+    assert(handle != NULL);
     auto sim = static_cast<GCMCSimulationV2*>(handle);
     sim->step();
 }
 
 void gcmc_v2_get_site_pos(GCMCHandle handle, int mol_idx, int site_idx, double* x, double* y, double* z) {
+    assert(handle != NULL);
     auto sim = static_cast<GCMCSimulationV2*>(handle);
-    if (mol_idx < 0 || mol_idx >= static_cast<int>(sim->molecules.size())) {
-        if (x) *x = 0.0;
-        if (y) *y = 0.0;
-        if (z) *z = 0.0;
-        return;
-    }
+    assert(mol_idx >= 0 && mol_idx < (int)sim->molecules.size());
     const auto& mol = sim->molecules[mol_idx];
-    if (site_idx < 0 || site_idx >= mol.num_sites) {
-        if (x) *x = 0.0;
-        if (y) *y = 0.0;
-        if (z) *z = 0.0;
-        return;
-    }
+    assert(site_idx >= 0 && site_idx < mol.num_sites);
     if (x) *x = mol.sites[site_idx].x;
     if (y) *y = mol.sites[site_idx].y;
     if (z) *z = mol.sites[site_idx].z;
 }
 
 int gcmc_v2_get_molecule_species(GCMCHandle handle, int mol_idx) {
+    assert(handle != NULL);
     auto sim = static_cast<GCMCSimulationV2*>(handle);
-    if (mol_idx < 0 || mol_idx >= static_cast<int>(sim->molecules.size())) return 0;
+    assert(mol_idx >= 0 && mol_idx < (int)sim->molecules.size());
     return sim->molecules[mol_idx].species_id;
 }
-

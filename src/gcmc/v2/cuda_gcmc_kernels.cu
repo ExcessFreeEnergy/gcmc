@@ -6,27 +6,31 @@
 
 namespace gcmc_v2 {
 
-__device__ inline float3 make_f3(float x, float y, float z) {
-    float3 v; v.x = x; v.y = y; v.z = z; return v;
+__device__ float3 make_f3(float x, float y, float z) {
+    float3 v;
+    v.x = x;
+    v.y = y;
+    v.z = z;
+    return v;
 }
 
-__device__ inline float3 operator+(const float3& a, const float3& b) {
+__device__ float3 operator+(const float3& a, const float3& b) {
     return make_f3(a.x + b.x, a.y + b.y, a.z + b.z);
 }
 
-__device__ inline float3 operator-(const float3& a, const float3& b) {
+__device__ float3 operator-(const float3& a, const float3& b) {
     return make_f3(a.x - b.x, a.y - b.y, a.z - b.z);
 }
 
-__device__ inline float3 operator*(const float3& a, float s) {
+__device__ float3 operator*(const float3& a, float s) {
     return make_f3(a.x * s, a.y * s, a.z * s);
 }
 
-__device__ inline float dot(const float3& a, const float3& b) {
+__device__ float dot(const float3& a, const float3& b) {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-__device__ inline float3 min_image_dev(const float3& delta, float lx, float ly, float lz) {
+__device__ float3 min_image_dev(const float3& delta, float lx, float ly, float lz) {
     return make_f3(
         delta.x - lx * rintf(delta.x / lx),
         delta.y - ly * rintf(delta.y / ly),
@@ -34,7 +38,7 @@ __device__ inline float3 min_image_dev(const float3& delta, float lx, float ly, 
     );
 }
 
-__device__ inline float3 wrap_pbc_dev(const float3& pos, float lx, float ly, float lz) {
+__device__ float3 wrap_pbc_dev(const float3& pos, float lx, float ly, float lz) {
     return make_f3(
         pos.x - lx * floorf(pos.x / lx),
         pos.y - ly * floorf(pos.y / ly),
@@ -42,15 +46,14 @@ __device__ inline float3 wrap_pbc_dev(const float3& pos, float lx, float ly, flo
     );
 }
 
-// Fast XORShift32 RNG per CUDA thread
 struct DevRNG {
     uint32_t state;
 
-    __device__ inline void init(uint32_t seed) {
+    __device__ void init(uint32_t seed) {
         state = seed ? seed : 123456789;
     }
 
-    __device__ inline uint32_t next_u32() {
+    __device__ uint32_t next_u32() {
         uint32_t x = state;
         x ^= x << 13;
         x ^= x >> 17;
@@ -59,48 +62,51 @@ struct DevRNG {
         return x;
     }
 
-    __device__ inline float uniform() {
+    __device__ float uniform() {
         return (next_u32() & 0x00FFFFFF) * (1.0f / 16777216.0f);
     }
 
-    __device__ inline float uniform_range(float a, float b) {
+    __device__ float uniform_range(float a, float b) {
         return a + uniform() * (b - a);
     }
 
-    __device__ inline int randint(int min_val, int max_val) {
-        if (min_val >= max_val) return min_val;
+    __device__ int randint(int min_val, int max_val) {
+        if (min_val >= max_val) {
+            return min_val;
+        }
         return min_val + (int)(next_u32() % (uint32_t)(max_val - min_val + 1));
     }
 };
 
-__device__ inline float calc_pair_energy_dev(const CUDAPairParams& p, float r) {
-    if (r >= p.rc) return 0.0f;
+__device__ float calc_pair_energy_dev(const CUDAPairParams& p, float r) {
+    if (r >= p.rc) {
+        return 0.0f;
+    }
+    float inv_r = 1.0f / r;
+    float r2 = (p.sigma_lj * inv_r) * (p.sigma_lj * inv_r);
+    float r6 = r2 * r2 * r2;
+
     switch (p.kind) {
-        case 1: { // LJ
-            float inv_r = 1.0f / r;
-            float r2 = (p.sigma_lj * inv_r) * (p.sigma_lj * inv_r);
-            float r6 = r2 * r2 * r2;
+        case 1:
             return 4.0f * p.epsilon_lj * (r6 * r6 - r6) - p.shift_lj;
-        }
-        case 2: { // WCA
+        case 2: {
             float r_wca = 1.12246205f * p.sigma_lj;
-            if (r >= r_wca) return 0.0f;
-            float inv_r = 1.0f / r;
-            float r2 = (p.sigma_lj * inv_r) * (p.sigma_lj * inv_r);
-            float r6 = r2 * r2 * r2;
+            if (r >= r_wca) {
+                return 0.0f;
+            }
             return 4.0f * p.epsilon_lj * (r6 * r6 - r6) + p.epsilon_lj;
         }
-        case 3: { // HS
-            return (r < p.sigma_lj) ? 1.0e30f : 0.0f;
-        }
-        case 4: { // HS+C
-            if (r < p.diameter) return 1.0e30f;
-            return p.prefactor * p.q1 * p.q2 * erfcf(r / p.kappa_inv) / r;
-        }
-        case 5: { // LJ+C
-            float inv_r = 1.0f / r;
-            float r2 = (p.sigma_lj * inv_r) * (p.sigma_lj * inv_r);
-            float r6 = r2 * r2 * r2;
+        case 3:
+            if (r < p.sigma_lj) {
+                return 1.0e30f;
+            }
+            return 0.0f;
+        case 4:
+            if (r < p.diameter) {
+                return 1.0e30f;
+            }
+            return p.prefactor * p.q1 * p.q2 * erfcf(r / p.kappa_inv) * inv_r;
+        case 5: {
             float u_lj = 4.0f * p.epsilon_lj * (r6 * r6 - r6) - p.shift_lj;
             float u_c = p.prefactor * p.q1 * p.q2 * erfcf(r / p.kappa_inv) * inv_r;
             return u_lj + u_c;
@@ -110,20 +116,28 @@ __device__ inline float calc_pair_energy_dev(const CUDAPairParams& p, float r) {
     }
 }
 
-__device__ inline float calc_ext_energy_dev(const CUDAExternalParams& ep, const float3& pos) {
-    if (ep.kind == 0) return 0.0f;
+__device__ float calc_ext_energy_dev(const CUDAExternalParams& ep, const float3& pos) {
+    if (ep.kind == 0) {
+        return 0.0f;
+    }
     float x = pos.x;
 
-    if (ep.kind == 1) { // Wall
-        if (x < ep.width || x > ep.L - ep.width) return 1.0e30f;
+    if (ep.kind == 1) {
+        if (x < ep.width || x > ep.L - ep.width) {
+            return 1.0e30f;
+        }
         return 0.0f;
     }
-    if (ep.kind == 2) { // Slit
-        if (x < ep.low || x > ep.high) return 1.0e30f;
+    if (ep.kind == 2) {
+        if (x < ep.low || x > ep.high) {
+            return 1.0e30f;
+        }
         return 0.0f;
     }
-    if (ep.kind == 5) { // Training potential cosine
-        if (x < ep.low || x > ep.high) return 1.0e30f;
+    if (ep.kind == 5) {
+        if (x < ep.low || x > ep.high) {
+            return 1.0e30f;
+        }
         float arg = 2.0f * CUDART_PI_F * x / ep.L;
         float sines = ep.A1 * sinf(arg * 1.0f + ep.phi1) +
                       ep.A2 * sinf(arg * 2.0f + ep.phi2) +
@@ -136,7 +150,8 @@ __device__ inline float calc_ext_energy_dev(const CUDAExternalParams& ep, const 
 
         float r_low = x - ep.low;
         float r_high = ep.high - x;
-        float e_low = 0.0f, e_high = 0.0f;
+        float e_low = 0.0f;
+        float e_high = 0.0f;
         if (r_low < ep.cutoff && r_low > 0.0f) {
             float r3 = powf(ep.sigma / r_low, 3.0f);
             e_low = ep.epsilon * ((2.0f / 15.0f) * r3 * r3 * r3 - r3) - ep.shift;
@@ -150,7 +165,7 @@ __device__ inline float calc_ext_energy_dev(const CUDAExternalParams& ep, const 
     return 0.0f;
 }
 
-__device__ inline float get_site_charge_dev(const CUDABoxConfig& cfg, int species, int site) {
+__device__ float get_site_charge_dev(const CUDABoxConfig& cfg, int species, int site) {
     if (cfg.mol_type == 2) {
         return (species == 0) ? cfg.site_charges[0] : cfg.site_charges[1];
     }
@@ -160,8 +175,10 @@ __device__ inline float get_site_charge_dev(const CUDABoxConfig& cfg, int specie
     return cfg.site_charges[site];
 }
 
-__device__ inline float calc_mol_self_energy_dev(const CUDABoxConfig& cfg, int species, int num_sites) {
-    if (cfg.electrostatics_mode != 1) return 0.0f;
+__device__ float calc_mol_self_energy_dev(const CUDABoxConfig& cfg, int species, int num_sites) {
+    if (cfg.electrostatics_mode != 1) {
+        return 0.0f;
+    }
     float sum_q2 = 0.0f;
     for (int s = 0; s < num_sites; ++s) {
         float q = get_site_charge_dev(cfg, species, s);
@@ -170,12 +187,14 @@ __device__ inline float calc_mol_self_energy_dev(const CUDABoxConfig& cfg, int s
     return cfg.ewald_self_per_q2 * sum_q2;
 }
 
-__device__ inline float calc_ewald_recip_delta_dev(
+__device__ float calc_ewald_recip_delta_dev(
     const CUDABoxConfig& cfg,
     const float* s_re, const float* s_im,
     const float* d_re, const float* d_im
 ) {
-    if (cfg.electrostatics_mode != 1) return 0.0f;
+    if (cfg.electrostatics_mode != 1) {
+        return 0.0f;
+    }
     float delta_U = 0.0f;
     for (int k = 0; k < cfg.num_k_vectors && k < MAX_EWALD_K_VECTORS; ++k) {
         float w = cfg.k_vectors[k].weight;
@@ -198,7 +217,6 @@ __global__ void batch_gcmc_kernel(
     int box_id = blockIdx.x;
     const CUDABoxConfig& cfg = d_configs[box_id];
 
-    // Local coordinates in shared memory or registers
     __shared__ float3 s_pos[MAX_MOLECULES_PER_BOX][MAX_SITES_PER_MOL];
     __shared__ int s_species[MAX_MOLECULES_PER_BOX];
     __shared__ int s_num_molecules;
@@ -210,7 +228,7 @@ __global__ void batch_gcmc_kernel(
     __shared__ float s_rho_k_im[MAX_EWALD_K_VECTORS];
 
     DevRNG rng;
-    rng.init(static_cast<uint32_t>(base_seed + box_id * 104729 + threadIdx.x * 7919));
+    rng.init((uint32_t)(base_seed + box_id * 104729 + threadIdx.x * 7919));
 
     if (threadIdx.x == 0) {
         s_num_molecules = 0;
@@ -235,7 +253,6 @@ __global__ void batch_gcmc_kernel(
             float r_move = rng.uniform();
 
             if (r_move < cfg.prob_insert && s_num_molecules < MAX_MOLECULES_PER_BOX - 1) {
-                // Generate trial molecule
                 float3 center = make_f3(
                     rng.uniform_range(0, cfg.box_x),
                     rng.uniform_range(0, cfg.box_y),
@@ -244,22 +261,22 @@ __global__ void batch_gcmc_kernel(
                 float3 trial_sites[3];
                 int trial_species = 0;
 
-                if (cfg.mol_type == 3) { // ABC Dipole
-                    float u1 = rng.uniform(), u2 = rng.uniform();
+                if (cfg.mol_type == 3) {
+                    float u1 = rng.uniform();
+                    float u2 = rng.uniform();
                     float theta = acosf(2.0f * u1 - 1.0f);
                     float phi = 2.0f * CUDART_PI_F * u2;
                     float3 dir = make_f3(sinf(theta) * cosf(phi), sinf(theta) * sinf(phi), cosf(theta));
                     trial_sites[0] = wrap_pbc_dev(center, cfg.box_x, cfg.box_y, cfg.box_z);
                     trial_sites[1] = wrap_pbc_dev(center + dir * cfg.bond_length, cfg.box_x, cfg.box_y, cfg.box_z);
                     trial_sites[2] = wrap_pbc_dev(center - dir * cfg.bond_length, cfg.box_x, cfg.box_y, cfg.box_z);
-                } else if (cfg.mol_type == 2) { // TwoType RPM
+                } else if (cfg.mol_type == 2) {
                     trial_species = (rng.uniform() < 0.5f) ? 0 : 1;
                     trial_sites[0] = wrap_pbc_dev(center, cfg.box_x, cfg.box_y, cfg.box_z);
                 } else {
                     trial_sites[0] = wrap_pbc_dev(center, cfg.box_x, cfg.box_y, cfg.box_z);
                 }
 
-                // Compute local energy
                 float delta_E = 0.0f;
                 for (int i = 0; i < s_num_molecules; ++i) {
                     for (int s1 = 0; s1 < num_sites_per_mol; ++s1) {
@@ -284,10 +301,13 @@ __global__ void batch_gcmc_kernel(
                         float kx = cfg.k_vectors[k].kx;
                         float ky = cfg.k_vectors[k].ky;
                         float kz = cfg.k_vectors[k].kz;
-                        float dre = 0.0f, dim = 0.0f;
+                        float dre = 0.0f;
+                        float dim = 0.0f;
                         for (int s = 0; s < num_sites_per_mol; ++s) {
                             float q = get_site_charge_dev(cfg, trial_species, s);
-                            if (fabsf(q) < 1e-6f) continue;
+                            if (fabsf(q) < 1e-6f) {
+                                continue;
+                            }
                             float k_dot_r = kx * trial_sites[s].x + ky * trial_sites[s].y + kz * trial_sites[s].z;
                             dre += q * cosf(k_dot_r);
                             dim += q * sinf(k_dot_r);
@@ -309,8 +329,11 @@ __global__ void batch_gcmc_kernel(
                     }
                     s_species[s_num_molecules] = trial_species;
                     s_num_molecules++;
-                    if (trial_species == 0) s_num1++;
-                    else s_num2++;
+                    if (trial_species == 0) {
+                        s_num1++;
+                    } else {
+                        s_num2++;
+                    }
                     if (cfg.electrostatics_mode == 1) {
                         for (int k = 0; k < cfg.num_k_vectors && k < MAX_EWALD_K_VECTORS; ++k) {
                             s_rho_k_re[k] += d_re[k];
@@ -319,13 +342,14 @@ __global__ void batch_gcmc_kernel(
                     }
                 }
             } else if (r_move < cfg.prob_insert + cfg.prob_delete && s_num_molecules > 0) {
-                // Delete
                 int idx = rng.randint(0, s_num_molecules - 1);
                 int del_species = s_species[idx];
                 float delta_E = 0.0f;
 
                 for (int i = 0; i < s_num_molecules; ++i) {
-                    if (i == idx) continue;
+                    if (i == idx) {
+                        continue;
+                    }
                     for (int s1 = 0; s1 < num_sites_per_mol; ++s1) {
                         int t1 = (cfg.mol_type == 2) ? del_species : s1;
                         for (int s2 = 0; s2 < num_sites_per_mol; ++s2) {
@@ -348,10 +372,13 @@ __global__ void batch_gcmc_kernel(
                         float kx = cfg.k_vectors[k].kx;
                         float ky = cfg.k_vectors[k].ky;
                         float kz = cfg.k_vectors[k].kz;
-                        float dre = 0.0f, dim = 0.0f;
+                        float dre = 0.0f;
+                        float dim = 0.0f;
                         for (int s = 0; s < num_sites_per_mol; ++s) {
                             float q = get_site_charge_dev(cfg, del_species, s);
-                            if (fabsf(q) < 1e-6f) continue;
+                            if (fabsf(q) < 1e-6f) {
+                                continue;
+                            }
                             float k_dot_r = kx * s_pos[idx][s].x + ky * s_pos[idx][s].y + kz * s_pos[idx][s].z;
                             dre -= q * cosf(k_dot_r);
                             dim -= q * sinf(k_dot_r);
@@ -376,8 +403,11 @@ __global__ void batch_gcmc_kernel(
                         s_species[idx] = s_species[s_num_molecules - 1];
                     }
                     s_num_molecules--;
-                    if (del_species == 0) s_num1--;
-                    else s_num2--;
+                    if (del_species == 0) {
+                        s_num1--;
+                    } else {
+                        s_num2--;
+                    }
                     if (cfg.electrostatics_mode == 1) {
                         for (int k = 0; k < cfg.num_k_vectors && k < MAX_EWALD_K_VECTORS; ++k) {
                             s_rho_k_re[k] += d_re[k];
@@ -386,7 +416,6 @@ __global__ void batch_gcmc_kernel(
                     }
                 }
             } else if (s_num_molecules > 0) {
-                // Displace
                 int idx = rng.randint(0, s_num_molecules - 1);
                 float3 displ = make_f3(
                     rng.uniform_range(-cfg.maxdispl, cfg.maxdispl),
@@ -398,10 +427,13 @@ __global__ void batch_gcmc_kernel(
                     new_sites[s] = wrap_pbc_dev(s_pos[idx][s] + displ, cfg.box_x, cfg.box_y, cfg.box_z);
                 }
 
-                float e_old = 0.0f, e_new = 0.0f;
+                float e_old = 0.0f;
+                float e_new = 0.0f;
                 int sp = s_species[idx];
                 for (int i = 0; i < s_num_molecules; ++i) {
-                    if (i == idx) continue;
+                    if (i == idx) {
+                        continue;
+                    }
                     for (int s1 = 0; s1 < num_sites_per_mol; ++s1) {
                         int t1 = (cfg.mol_type == 2) ? sp : s1;
                         for (int s2 = 0; s2 < num_sites_per_mol; ++s2) {
@@ -427,10 +459,13 @@ __global__ void batch_gcmc_kernel(
                         float kx = cfg.k_vectors[k].kx;
                         float ky = cfg.k_vectors[k].ky;
                         float kz = cfg.k_vectors[k].kz;
-                        float dre = 0.0f, dim = 0.0f;
+                        float dre = 0.0f;
+                        float dim = 0.0f;
                         for (int s = 0; s < num_sites_per_mol; ++s) {
                             float q = get_site_charge_dev(cfg, sp, s);
-                            if (fabsf(q) < 1e-6f) continue;
+                            if (fabsf(q) < 1e-6f) {
+                                continue;
+                            }
                             float k_new = kx * new_sites[s].x + ky * new_sites[s].y + kz * new_sites[s].z;
                             float k_old = kx * s_pos[idx][s].x + ky * s_pos[idx][s].y + kz * s_pos[idx][s].z;
                             dre += q * (cosf(k_new) - cosf(k_old));
@@ -492,10 +527,12 @@ extern "C" void run_cuda_batch_gcmc(
     CUDABoxOutput* h_outputs,
     uint64_t seed
 ) {
-    if (num_boxes <= 0) return;
+    if (num_boxes <= 0) {
+        return;
+    }
 
-    CUDABoxConfig* d_configs = nullptr;
-    CUDABoxOutput* d_outputs = nullptr;
+    CUDABoxConfig* d_configs = NULL;
+    CUDABoxOutput* d_outputs = NULL;
 
     cudaMalloc(&d_configs, sizeof(CUDABoxConfig) * num_boxes);
     cudaMalloc(&d_outputs, sizeof(CUDABoxOutput) * num_boxes);

@@ -4,14 +4,14 @@ and Stillinger-Lovett thermodynamic bulk corrections against the published datas
 """
 
 import os
+
 import numpy as np
-import pytest
 
 from gcmc.lmft_baseline import (
-    compute_restructuring_potential_1d,
-    compute_restructuring_field_1d,
-    stillinger_lovett_corrections,
     CdftPicardSolver,
+    compute_restructuring_field_1d,
+    compute_restructuring_potential_1d,
+    stillinger_lovett_corrections,
 )
 
 ONLINE_DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "online_data", "OnlineData")
@@ -26,7 +26,9 @@ def test_stillinger_lovett_thermodynamic_shifts():
     eps_diel = 82.0
     kappa = 1.0 / 4.5  # A^-1
 
-    shifts = stillinger_lovett_corrections(T=T, rho_b=rho_b, epsilon_diel=eps_diel, kappa=kappa, kB=1.0, N_molecules=256)
+    shifts = stillinger_lovett_corrections(
+        T=T, rho_b=rho_b, epsilon_diel=eps_diel, kappa=kappa, kB=1.0, N_molecules=256
+    )
 
     # Validate that Delta P is negative (short range has higher pressure than long range)
     assert shifts["delta_P"] < 0.0, "Delta P must be negative for polar fluid"
@@ -59,7 +61,7 @@ def test_restructuring_field_symmetry_and_convergence():
     # 1. E_R(z) and phi_R(z) must be finite everywhere
     assert np.all(np.isfinite(e_R))
     assert np.all(np.isfinite(phi_R))
-    
+
     # 2. Symmetry verification:
     # phi_R is antisymmetric: phi_R(-z) = -phi_R(z)
     assert np.allclose(phi_R, -phi_R[::-1], atol=1e-5)

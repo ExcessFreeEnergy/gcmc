@@ -4,11 +4,10 @@
 #include <iomanip>
 #include <cmath>
 #include <cstring>
-#include <stdexcept>
+#include <cassert>
 
 namespace gcmc_v2 {
 
-// SPC/E reference geometry
 static const Vec3 SPCE_O(0.0, 0.0, 0.0);
 static const Vec3 SPCE_H1(0.0, 1.0, 0.0);
 static const Vec3 SPCE_H2(0.94281615, -0.333313, 0.0);
@@ -21,7 +20,9 @@ GCMCSimulationV2::~GCMCSimulationV2() {}
 
 void GCMCSimulationV2::init_move_probabilities() {
     double total = weight_insert + weight_delete + weight_displace + weight_rotate + weight_mutate + weight_swap;
-    if (total <= 0.0) total = 1.0;
+    if (total <= 0.0) {
+        total = 1.0;
+    }
     prob_insert = weight_insert / total;
     prob_delete = weight_delete / total;
     prob_displace = weight_displace / total;
@@ -40,15 +41,21 @@ double GCMCSimulationV2::get_site_charge(const Molecule& mol, int site_idx) cons
         return (mol.species_id == 0) ? site_charges[0] : site_charges[1];
     }
     if (mol_type == MoleculeType::ABC_DIPOLE) {
-        if (site_idx == 0) return 0.0;
+        if (site_idx == 0) {
+            return 0.0;
+        }
         return (site_idx == 1) ? site_charges[1] : site_charges[2];
     }
-    if (site_idx >= 0 && site_idx < 3) return site_charges[site_idx];
+    if (site_idx >= 0 && site_idx < 3) {
+        return site_charges[site_idx];
+    }
     return 0.0;
 }
 
 double GCMCSimulationV2::get_mol_self_energy(const Molecule& mol) const {
-    if (electrostatics_mode != ElectrostaticsMode::LONG_RANGE_EWALD) return 0.0;
+    if (electrostatics_mode != ElectrostaticsMode::LONG_RANGE_EWALD) {
+        return 0.0;
+    }
     double sum_q2 = 0.0;
     for (int s = 0; s < mol.num_sites; ++s) {
         double q = get_site_charge(mol, s);
@@ -58,7 +65,9 @@ double GCMCSimulationV2::get_mol_self_energy(const Molecule& mol) const {
 }
 
 void GCMCSimulationV2::init_structure_factor() {
-    if (electrostatics_mode != ElectrostaticsMode::LONG_RANGE_EWALD) return;
+    if (electrostatics_mode != ElectrostaticsMode::LONG_RANGE_EWALD) {
+        return;
+    }
     ewald_params.init(box_x, box_y, box_z, ewald_params.prefactor);
     rho_k.assign(ewald_params.k_vectors.size(), {0.0, 0.0});
     for (int i = 0; i < number; ++i) {
@@ -75,10 +84,13 @@ void GCMCSimulationV2::calc_mol_delta_rho_k(const Molecule& mol, std::vector<Com
     delta.resize(ewald_params.k_vectors.size());
     for (size_t m = 0; m < ewald_params.k_vectors.size(); ++m) {
         const auto& kv = ewald_params.k_vectors[m];
-        double dre = 0.0, dim = 0.0;
+        double dre = 0.0;
+        double dim = 0.0;
         for (int s = 0; s < mol.num_sites; ++s) {
             double q = get_site_charge(mol, s);
-            if (std::abs(q) < 1e-12) continue;
+            if (std::abs(q) < 1e-12) {
+                continue;
+            }
             double k_dot_r = kv.kx * mol.sites[s].x + kv.ky * mol.sites[s].y + kv.kz * mol.sites[s].z;
             dre += q * std::cos(k_dot_r);
             dim += q * std::sin(k_dot_r);
@@ -88,7 +100,9 @@ void GCMCSimulationV2::calc_mol_delta_rho_k(const Molecule& mol, std::vector<Com
 }
 
 double GCMCSimulationV2::calc_ewald_reciprocal_energy_delta(const std::vector<ComplexDouble>& delta) const {
-    if (electrostatics_mode != ElectrostaticsMode::LONG_RANGE_EWALD) return 0.0;
+    if (electrostatics_mode != ElectrostaticsMode::LONG_RANGE_EWALD) {
+        return 0.0;
+    }
     double delta_U = 0.0;
     for (size_t m = 0; m < ewald_params.k_vectors.size(); ++m) {
         double w = ewald_params.k_vectors[m].weight;
@@ -102,7 +116,9 @@ double GCMCSimulationV2::calc_ewald_reciprocal_energy_delta(const std::vector<Co
 }
 
 double GCMCSimulationV2::ewald_reciprocal_energy() const {
-    if (electrostatics_mode != ElectrostaticsMode::LONG_RANGE_EWALD) return 0.0;
+    if (electrostatics_mode != ElectrostaticsMode::LONG_RANGE_EWALD) {
+        return 0.0;
+    }
     double u_recip = 0.0;
     for (size_t m = 0; m < ewald_params.k_vectors.size(); ++m) {
         double w = ewald_params.k_vectors[m].weight;
@@ -119,7 +135,9 @@ double GCMCSimulationV2::calc_local_energy(const Molecule& mol, int exclude_idx)
     double energy = 0.0;
 
     for (int i = 0; i < number; ++i) {
-        if (i == exclude_idx) continue;
+        if (i == exclude_idx) {
+            continue;
+        }
         const Molecule& other = molecules[i];
 
         for (int s1 = 0; s1 < mol.num_sites; ++s1) {
@@ -140,7 +158,6 @@ double GCMCSimulationV2::calc_local_energy(const Molecule& mol, int exclude_idx)
         }
     }
 
-    // External potential
     for (int s = 0; s < mol.num_sites; ++s) {
         int ext_type = (mol_type == MoleculeType::TWO_TYPE_RPM) ? mol.species_id : s;
         energy += ext_potentials[ext_type].calculate(mol.sites[s]);
@@ -160,7 +177,6 @@ double GCMCSimulationV2::total_energy() const {
     for (int i = 0; i < number; ++i) {
         const Molecule& mol_i = molecules[i];
 
-        // Pairwise interactions with j > i
         for (int j = i + 1; j < number; ++j) {
             const Molecule& mol_j = molecules[j];
 
@@ -182,7 +198,6 @@ double GCMCSimulationV2::total_energy() const {
             }
         }
 
-        // External potential
         for (int s = 0; s < mol_i.num_sites; ++s) {
             int ext_type = (mol_type == MoleculeType::TWO_TYPE_RPM) ? mol_i.species_id : s;
             e_ext += ext_potentials[ext_type].calculate(mol_i.sites[s]);
@@ -199,7 +214,6 @@ Molecule GCMCSimulationV2::generate_random_molecule() {
 
     if (mol_type == MoleculeType::ABC_DIPOLE) {
         mol.num_sites = 3;
-        // Random unit vector
         double u1 = rng.uniform();
         double u2 = rng.uniform();
         double theta = std::acos(2.0 * u1 - 1.0);
@@ -211,7 +225,6 @@ Molecule GCMCSimulationV2::generate_random_molecule() {
         mol.sites[2] = wrap(center - dir * bond_length);
     } else if (mol_type == MoleculeType::H2O_SPCE) {
         mol.num_sites = 3;
-        // Random quaternion rotation
         double u1 = rng.uniform();
         double u2 = rng.uniform();
         double u3 = rng.uniform();
@@ -243,7 +256,6 @@ Molecule GCMCSimulationV2::rotate_molecule(const Molecule& mol) {
     Vec3 center = mol.sites[0];
 
     if (mol_type == MoleculeType::ABC_DIPOLE) {
-        // Small random angular displacement
         double d_theta = rng.uniform_range(-0.2, 0.2);
         double d_phi = rng.uniform_range(-0.2, 0.2);
         double d_psi = rng.uniform_range(-0.2, 0.2);
@@ -254,7 +266,9 @@ Molecule GCMCSimulationV2::rotate_molecule(const Molecule& mol) {
         Vec3 arm = (mol.sites[1] - center).minimum_image(box_x, box_y, box_z);
         Vec3 new_arm = dq.rotate(arm);
         double len = new_arm.norm();
-        if (len > 1e-12) new_arm = new_arm * (bond_length / len);
+        if (len > 1e-12) {
+            new_arm = new_arm * (bond_length / len);
+        }
 
         res.sites[0] = center;
         res.sites[1] = wrap(center + new_arm);
@@ -281,7 +295,6 @@ void GCMCSimulationV2::step_abc() {
     double r = rng.uniform();
 
     if (r < prob_insert) {
-        // Insert
         Molecule new_mol = generate_random_molecule();
         double delta_E = calc_local_energy(new_mol);
         std::vector<ComplexDouble> delta_k;
@@ -302,7 +315,6 @@ void GCMCSimulationV2::step_abc() {
             }
         }
     } else if (r < prob_insert + prob_delete) {
-        // Delete
         if (number > 0) {
             int idx = rng.randint(0, number - 1);
             double delta_E = -calc_local_energy(molecules[idx], idx);
@@ -312,7 +324,7 @@ void GCMCSimulationV2::step_abc() {
                 delta_E += calc_ewald_reciprocal_energy_delta(delta_k);
                 delta_E += get_mol_self_energy(molecules[idx]);
             }
-            double log_prob = -beta * (delta_E + mu) + std::log(static_cast<double>(number)) - std::log(volume);
+            double log_prob = -beta * (delta_E + mu) + std::log((double)number) - std::log(volume);
             double prob = (log_prob < 700.0) ? std::exp(log_prob) : 0.0;
             if (rng.uniform() < prob) {
                 molecules.erase(molecules.begin() + idx);
@@ -326,7 +338,6 @@ void GCMCSimulationV2::step_abc() {
             }
         }
     } else if (r < prob_insert + prob_delete + prob_displace) {
-        // Displace
         if (number > 0) {
             int idx = rng.randint(0, number - 1);
             Molecule old_mol = molecules[idx];
@@ -365,7 +376,6 @@ void GCMCSimulationV2::step_abc() {
             }
         }
     } else {
-        // Rotate
         if (number > 0) {
             int idx = rng.randint(0, number - 1);
             Molecule old_mol = molecules[idx];
@@ -398,15 +408,10 @@ void GCMCSimulationV2::step_abc() {
     }
 }
 
-void GCMCSimulationV2::step_h2o() {
-    step_abc(); // Same move logic with H2O 3D rotation
-}
-
 void GCMCSimulationV2::step_two_type() {
     double r = rng.uniform();
 
     if (r < prob_insert) {
-        // Insert
         Molecule new_mol;
         new_mol.num_sites = 1;
         new_mol.species_id = (rng.uniform() < 0.5) ? 0 : 1;
@@ -426,8 +431,11 @@ void GCMCSimulationV2::step_two_type() {
         if (rng.uniform() < prob) {
             molecules.push_back(new_mol);
             number++;
-            if (new_mol.species_id == 0) number1++;
-            else number2++;
+            if (new_mol.species_id == 0) {
+                number1++;
+            } else {
+                number2++;
+            }
             if (electrostatics_mode == ElectrostaticsMode::LONG_RANGE_EWALD) {
                 for (size_t k = 0; k < delta_k.size(); ++k) {
                     rho_k[k].re += delta_k[k].re;
@@ -436,7 +444,6 @@ void GCMCSimulationV2::step_two_type() {
             }
         }
     } else if (r < prob_insert + prob_delete) {
-        // Delete
         if (number > 0) {
             int idx = rng.randint(0, number - 1);
             const Molecule& del_mol = molecules[idx];
@@ -450,11 +457,14 @@ void GCMCSimulationV2::step_two_type() {
                 delta_E += calc_ewald_reciprocal_energy_delta(delta_k);
                 delta_E += get_mol_self_energy(del_mol);
             }
-            double log_prob = -beta * (delta_E + target_mu) + std::log(static_cast<double>(target_num)) - std::log(volume);
+            double log_prob = -beta * (delta_E + target_mu) + std::log((double)target_num) - std::log(volume);
             double prob = (log_prob < 700.0) ? std::exp(log_prob) : 0.0;
             if (rng.uniform() < prob) {
-                if (del_mol.species_id == 0) number1--;
-                else number2--;
+                if (del_mol.species_id == 0) {
+                    number1--;
+                } else {
+                    number2--;
+                }
                 molecules.erase(molecules.begin() + idx);
                 number--;
                 if (electrostatics_mode == ElectrostaticsMode::LONG_RANGE_EWALD) {
@@ -466,7 +476,6 @@ void GCMCSimulationV2::step_two_type() {
             }
         }
     } else if (r < prob_insert + prob_delete + prob_displace) {
-        // Displace
         if (number > 0) {
             int idx = rng.randint(0, number - 1);
             Molecule old_mol = molecules[idx];
@@ -504,7 +513,6 @@ void GCMCSimulationV2::step_two_type() {
             }
         }
     } else {
-        // Mutate / Swap species type
         if (number > 0) {
             int idx = rng.randint(0, number - 1);
             Molecule old_mol = molecules[idx];
@@ -535,10 +543,13 @@ void GCMCSimulationV2::step_two_type() {
 }
 
 void GCMCSimulationV2::step() {
-    if (mol_type == MoleculeType::ABC_DIPOLE) step_abc();
-    else if (mol_type == MoleculeType::H2O_SPCE) step_h2o();
-    else if (mol_type == MoleculeType::TWO_TYPE_RPM) step_two_type();
-    else step_abc();
+    if (mol_type == MoleculeType::ABC_DIPOLE || mol_type == MoleculeType::H2O_SPCE) {
+        step_abc();
+    } else if (mol_type == MoleculeType::TWO_TYPE_RPM) {
+        step_two_type();
+    } else {
+        step_abc();
+    }
 }
 
 void GCMCSimulationV2::write_log_header() {
@@ -562,9 +573,13 @@ void GCMCSimulationV2::write_log_entry(int step_num, double energy) {
 }
 
 void GCMCSimulationV2::write_xyz_frame(gzFile gz_out, int step_num) {
-    if (!gz_out) return;
+    if (!gz_out) {
+        return;
+    }
     int total_atoms = 0;
-    for (const auto& m : molecules) total_atoms += m.num_sites;
+    for (const auto& m : molecules) {
+        total_atoms += m.num_sites;
+    }
 
     std::ostringstream ss;
     ss << total_atoms << "\n";
@@ -590,7 +605,9 @@ void GCMCSimulationV2::write_xyz_frame(gzFile gz_out, int step_num) {
 }
 
 void GCMCSimulationV2::write_density_profile() {
-    if (nbins_x <= 0 || density_samples <= 0) return;
+    if (nbins_x <= 0 || density_samples <= 0) {
+        return;
+    }
     std::string path = input_folder + "/density_x.dat";
     std::ofstream ofs(path);
     ofs << "# x rho1 rho2\n";
@@ -616,21 +633,24 @@ void GCMCSimulationV2::run_simulation() {
     std::string xyz_path = input_folder + "/" + output_xyz_path + ".gz";
     gzFile gz_out = gzopen(xyz_path.c_str(), "wb");
 
-    // Initial state logging
     write_log_entry(0, total_energy());
-    if (gz_out) write_xyz_frame(gz_out, 0);
+    if (gz_out) {
+        write_xyz_frame(gz_out, 0);
+    }
 
     for (int s = 1; s <= max_steps; ++s) {
         step();
 
-        // Sample density
         if (mol_type == MoleculeType::TWO_TYPE_RPM && s > equilibration_steps && nbins_x > 0 && (s % density_output_interval == 0)) {
             double dx = box_x / nbins_x;
             for (const auto& m : molecules) {
-                int bin = static_cast<int>(m.sites[0].x / dx);
+                int bin = (int)(m.sites[0].x / dx);
                 if (bin >= 0 && bin < nbins_x) {
-                    if (m.species_id == 0) density_accum1[bin] += 1.0;
-                    else density_accum2[bin] += 1.0;
+                    if (m.species_id == 0) {
+                        density_accum1[bin] += 1.0;
+                    } else {
+                        density_accum2[bin] += 1.0;
+                    }
                 }
             }
             density_samples++;
@@ -645,7 +665,9 @@ void GCMCSimulationV2::run_simulation() {
         }
     }
 
-    if (gz_out) gzclose(gz_out);
+    if (gz_out) {
+        gzclose(gz_out);
+    }
     if (mol_type == MoleculeType::TWO_TYPE_RPM && nbins_x > 0) {
         write_density_profile();
     }

@@ -12,11 +12,10 @@ import copy
 import os
 import shutil
 import tempfile
-import numpy as np
 
-from gcmc.v1 import load_config
 import gcmc.v2 as engine_v2
-from gcmc.lmft_baseline import compute_restructuring_potential_1d, stillinger_lovett_corrections
+from gcmc.lmft_baseline import stillinger_lovett_corrections
+from gcmc.v1 import load_config
 
 CONFIGS_DIR = os.path.join(os.path.dirname(__file__), "v1", "test_configs")
 
@@ -57,7 +56,11 @@ def compare_dielectrophoretic_scaling():
             energy = sim.total_energy()
 
             # Theoretical Stillinger-Lovett shift
-            box_vol = float(cfg.get("box_length_x", 20.0)) * float(cfg.get("box_length_y", 20.0)) * float(cfg.get("box_length_z", 20.0))
+            box_vol = (
+                float(cfg.get("box_length_x", 20.0))
+                * float(cfg.get("box_length_y", 20.0))
+                * float(cfg.get("box_length_z", 20.0))
+            )
             rho_bulk = final_N / box_vol
             T = float(cfg.get("T", 300.0))
             kB = float(cfg.get("kB", 1.380649e-23))
@@ -70,15 +73,19 @@ def compare_dielectrophoretic_scaling():
                 N_molecules=final_N,
             )
 
-            results.append({
-                "phi0": phi0,
-                "final_N": final_N,
-                "rho_bulk": rho_bulk,
-                "energy": energy,
-                "delta_mu_SL": sl_shifts["delta_mu"],
-            })
+            results.append(
+                {
+                    "phi0": phi0,
+                    "final_N": final_N,
+                    "rho_bulk": rho_bulk,
+                    "energy": energy,
+                    "delta_mu_SL": sl_shifts["delta_mu"],
+                }
+            )
 
-            print(f"[Field phi0 = {phi0:4.1f} V]  Equilibrium N = {final_N:3d}  |  Density = {rho_bulk:.5f} mol/A^3  |  Energy = {energy:.6e} J  |  SL Delta_mu = {sl_shifts['delta_mu']:.4f} eV")
+            print(
+                f"[Field phi0 = {phi0:4.1f} V]  Equilibrium N = {final_N:3d}  |  Density = {rho_bulk:.5f} mol/A^3  |  Energy = {energy:.6e} J  |  SL Delta_mu = {sl_shifts['delta_mu']:.4f} eV"
+            )
 
     # Verify that higher electric field increases fluid uptake / polarization energy
     assert results[-1]["final_N"] >= results[0]["final_N"] or abs(results[-1]["energy"]) > 0

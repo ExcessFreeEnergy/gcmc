@@ -7,13 +7,14 @@ Verifies:
 4. Correct response to --enable-long-range / electrostatics_mode flags.
 """
 
-import os
 import copy
+import os
+
 import numpy as np
 import pytest
 
-from gcmc.v1 import load_config
 import gcmc.v2 as engine_v2
+from gcmc.v1 import load_config
 
 CONFIGS_DIR = os.path.join(os.path.dirname(__file__), "v1", "test_configs")
 
