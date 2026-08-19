@@ -28,12 +28,12 @@ This repository is a modernized, accelerated fork of [https://github.com/annatbu
    - Up to **38,598x faster** than the Python baseline on modern NVIDIA GPUs (RTX 4090) in short-range mode (>112 Million steps/s).
    - Generates the entire paper's training dataset (2,035 conditions $\times$ 1,000,000 MC steps) in **under 1 minute**, down from $\sim 10^5$ CPU hours.
 3. **Embedded Zero-Dependency LMFT Baseline Solver**:
-   - Pure Python & zero-copy C module (`lmft_baseline`) computing exact 1D Fourier restructuring potentials $\phi_R(z)$, electric fields $E_R(z)$, Stillinger-Lovett bulk thermodynamic shifts, and Picard cDFT solutions.
+   - Pure Python & zero-copy C module (`lmft_baseline`) that computes exact 1D Fourier restructuring potentials $\phi_R(z)$, electric fields $E_R(z)$, Stillinger-Lovett bulk thermodynamic shifts, Fundamental Measure Theory (FMT) hard-sphere correlations, and Picard cDFT solutions.
 4. **PufferLib Reinforcement Learning Environment & Interactive UI**:
-   - Native C zero-copy ocean environment (`CdftFluidEnv` / `BatchedCdftVecEnv`) with embedded LMFT restructuring convolution that delivers **>480,000 steps/sec** for active dielectrocapillary control.
-   - Vectorized PPO loop (`train_pufferl.py`) that trains 1,000,000 continuous timesteps on GPU in **18 seconds**.
+   - Native C zero-copy ocean environment (`CdftFluidEnv` / `BatchedCdftVecEnv`) with embedded LMFT restructuring convolution and Langevin dipole polarization that delivers **>48,000 SPS** for active dielectrocapillary control.
+   - Vectorized PPO loop (`train_pufferl.py`) that trains 2,000,000 continuous timesteps on GPU in **41 seconds**.
    - Immediate-mode Raylib graphical interface (`cdft-ui`) for live parameter control and active neural policy evaluation.
-5. **Modern Package Management with `uv`**:
+5. **Package Management with `uv`**:
    - Fast, reproducible dependency management and execution via `uv`.
 
 ---
@@ -49,7 +49,7 @@ Performance measurements on a local workstation with an NVIDIA GeForce RTX 4090 
 | **RPM Electrolyte** | **Short-Range (SR)** | 5,768.4 steps/s | 180,385.1 steps/s | **27,640,027.5 steps/s** | **153.2x** | **18,436x** | **1.22 minutes** |
 | **RPM Electrolyte** | **Long-Range Ewald (LR)** | N/A | 62,060.6 steps/s | **262,800.9 steps/s** | **4.2x** | N/A | **2.15 hours** |
 | **SPC/E Water (`H2O`)** | **Short-Range (SR)** | 3,337.4 steps/s | 726,251.2 steps/s | **40,578,059 steps/s** | **55.9x** | **12,158x** | **0.84 minutes (50 s)** |
-| **PufferLib cDFT Env** | **Embedded LMFT** | N/A | N/A | **481,600 steps/s** | **Zero-Copy C** | N/A | **Vectorized RL Rollouts** |
+| **PufferLib cDFT Env** | **Embedded LMFT** | N/A | N/A | **48,679 steps/s** | **Zero-Copy C** | N/A | **Vectorized RL Rollouts** |
 
 ---
 
@@ -211,7 +211,7 @@ By default, simulations run in high-throughput **Short-Range (SR)** mode (`>112M
    results = engine_v2.run_batch_cuda(
        [cfg],
        num_steps=100000,
-       equilibration_steps=20000
+       equilibration_steps=20000,
    )
    print(f"Equilibrium Avg N: {results[0]['avg_N']}")
    ```
@@ -242,14 +242,14 @@ Inspired by the theoretical proposals for programmable fluid control and neuromo
 
 #### How I Realize It:
 While the paper explores static equilibrium isotherms under fixed electric fields, I extend this framework into an active, real-time closed-loop control system:
-- **Zero-Copy C Ocean Environment (`cdft_env.c`)**: High-throughput vectorized simulation of slit-pore dielectrocapillarity and density functional relaxation with embedded LMFT restructuring convolution.
+- **Zero-Copy C Ocean Environment (`cdft_env.c`)**: High-throughput vectorized simulation of slit-pore dielectrocapillarity and density functional relaxation with embedded LMFT restructuring convolution, Fundamental Measure Theory (FMT) hard-sphere repulsion, and Langevin dipole orientational polarization.
 - **Continuous Actor-Critic Policy**: Gaussian policy that trains via PPO to dynamically modulate applied voltage amplitudes ($\phi_0$), spatial harmonic modes ($m$), and DC bias offsets ($V_{\rm bias}$) to target and stabilize pore filling fractions ($\theta^*$).
 
 #### Training Command:
 
 ```bash
-# Train on 128 vectorized environments for 1,000,000 steps (~18 seconds on NVIDIA RTX 4090)
-uv run python -m gcmc.envs.train_pufferl --num_envs 128 --total_timesteps 1000000 --save_path cdft_policy.pt
+# Train on 128 vectorized environments for 2,000,000 steps (~41 seconds on NVIDIA RTX 4090)
+uv run python -m gcmc.envs.train_pufferl --num_envs 128 --total_timesteps 2000000 --save_path cdft_policy.pt
 ```
 
 #### Interactive Raylib UI (`cdft-ui`)
@@ -277,13 +277,13 @@ Run the automated test suite:
 uv run pytest tests/ -v
 ```
 
-All 37 automated tests execute in **~7 seconds** to validate:
+All 39 automated tests execute in **~12 seconds** to validate:
 - Exact 1:1 mathematical energy equivalence between `v1` and `v2`.
 - Real-space and reciprocal-space Long-Range Ewald electrostatics on CPU & GPU.
 - Numerical invariance under 3D quaternion molecular rotations.
 - Dual-engine trajectory stream and gzip compression.
 - CUDA batched multi-box simulation on NVIDIA GPU.
-- Zero-copy C PufferLib environment step, reset, and observation dynamics with embedded LMFT convolution.
+- Zero-copy C PufferLib environment step, reset, and observation dynamics with embedded LMFT convolution, FMT hard spheres, and Langevin dipole polarization.
 - Immediate-mode UI widget logic and CLI arguments.
 
 ---
