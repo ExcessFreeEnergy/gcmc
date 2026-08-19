@@ -256,9 +256,9 @@ Molecule GCMCSimulationV2::rotate_molecule(const Molecule& mol) {
     Vec3 center = mol.sites[0];
 
     if (mol_type == MoleculeType::ABC_DIPOLE) {
-        double d_theta = rng.uniform_range(-0.2, 0.2);
-        double d_phi = rng.uniform_range(-0.2, 0.2);
-        double d_psi = rng.uniform_range(-0.2, 0.2);
+        double d_theta = rng.uniform_range(-maxrot, maxrot);
+        double d_phi = rng.uniform_range(-maxrot, maxrot);
+        double d_psi = rng.uniform_range(-maxrot, maxrot);
         Quaternion dq(std::cos(d_theta), std::sin(d_phi), std::sin(d_psi), std::sin(d_theta));
         double norm = std::sqrt(dq.w * dq.w + dq.x * dq.x + dq.y * dq.y + dq.z * dq.z);
         dq = Quaternion(dq.w / norm, dq.x / norm, dq.y / norm, dq.z / norm);
@@ -274,9 +274,9 @@ Molecule GCMCSimulationV2::rotate_molecule(const Molecule& mol) {
         res.sites[1] = wrap(center + new_arm);
         res.sites[2] = wrap(center - new_arm);
     } else if (mol_type == MoleculeType::H2O_SPCE) {
-        double d_theta = rng.uniform_range(-0.2, 0.2);
-        double d_phi = rng.uniform_range(-0.2, 0.2);
-        double d_psi = rng.uniform_range(-0.2, 0.2);
+        double d_theta = rng.uniform_range(-maxrot, maxrot);
+        double d_phi = rng.uniform_range(-maxrot, maxrot);
+        double d_psi = rng.uniform_range(-maxrot, maxrot);
         Quaternion dq(std::cos(d_theta), std::sin(d_phi), std::sin(d_psi), std::sin(d_theta));
         double norm = std::sqrt(dq.w * dq.w + dq.x * dq.x + dq.y * dq.y + dq.z * dq.z);
         dq = Quaternion(dq.w / norm, dq.x / norm, dq.y / norm, dq.z / norm);

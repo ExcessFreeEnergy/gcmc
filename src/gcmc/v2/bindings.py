@@ -36,6 +36,7 @@ _lib.gcmc_v2_set_thermo.argtypes = [c_void_p, c_double, c_double, c_double]
 _lib.gcmc_v2_set_box.argtypes = [c_void_p, c_double, c_double, c_double, c_double]
 _lib.gcmc_v2_set_steps.argtypes = [c_void_p, c_int, c_int, c_int, c_bool]
 _lib.gcmc_v2_set_molecule_type.argtypes = [c_void_p, c_int, c_double, c_double]
+_lib.gcmc_v2_set_maxrot.argtypes = [c_void_p, c_double]
 _lib.gcmc_v2_set_weights.argtypes = [c_void_p, c_double, c_double, c_double, c_double, c_double, c_double]
 _lib.gcmc_v2_set_paths.argtypes = [c_void_p, c_char_p, c_char_p, c_char_p]
 
@@ -300,10 +301,11 @@ class GCMCSimulationV2:
         print_energy = bool(cfg.get("print_energy", True))
         _lib.gcmc_v2_set_steps(self.handle, max_steps, eq_steps, out_interval, print_energy)
 
-        # Molecule & moves
         bond_length = float(cfg.get("bond_length", 0.5))
         maxdispl = float(cfg.get("maxdispl", 3.0))
+        maxrot = float(cfg.get("maxrot", 0.2))
         _lib.gcmc_v2_set_molecule_type(self.handle, mol_type_id, bond_length, maxdispl)
+        _lib.gcmc_v2_set_maxrot(self.handle, maxrot)
 
         weights = cfg.get("weights", {})
         w_ins = float(weights.get("insert", 1.0))

@@ -18,6 +18,7 @@ void gcmc_v2_set_thermo(GCMCHandle handle, double T, double kB, double mu);
 void gcmc_v2_set_box(GCMCHandle handle, double lx, double ly, double lz, double rc);
 void gcmc_v2_set_steps(GCMCHandle handle, int max_steps, int eq_steps, int out_interval, bool print_energy);
 void gcmc_v2_set_molecule_type(GCMCHandle handle, int mol_type, double bond_length, double maxdispl);
+void gcmc_v2_set_maxrot(GCMCHandle handle, double maxrot);
 void gcmc_v2_set_weights(GCMCHandle handle, double w_ins, double w_del, double w_disp, double w_rot, double w_mut, double w_swp);
 void gcmc_v2_set_paths(GCMCHandle handle, const char* folder, const char* logfile, const char* output_xyz);
 

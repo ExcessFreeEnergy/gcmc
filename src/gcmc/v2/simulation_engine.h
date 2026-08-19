@@ -97,6 +97,7 @@ public:
     double prob_swap = 0.0;
 
     double maxdispl = 3.0;
+    double maxrot = 0.2;
 
     std::string input_folder = ".";
     std::string output_xyz_path = "output.xyz";

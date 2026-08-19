@@ -50,6 +50,12 @@ void gcmc_v2_set_molecule_type(GCMCHandle handle, int mol_type, double bond_leng
     sim->maxdispl = maxdispl;
 }
 
+void gcmc_v2_set_maxrot(GCMCHandle handle, double maxrot) {
+    assert(handle != NULL);
+    auto sim = static_cast<GCMCSimulationV2*>(handle);
+    sim->maxrot = maxrot;
+}
+
 void gcmc_v2_set_weights(GCMCHandle handle, double w_ins, double w_del, double w_disp, double w_rot, double w_mut, double w_swp) {
     assert(handle != NULL);
     auto sim = static_cast<GCMCSimulationV2*>(handle);
