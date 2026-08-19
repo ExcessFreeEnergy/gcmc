@@ -248,7 +248,8 @@ enum class ExternalPotentialKind {
     SLIT_LJ93,
     TRAINING_POTENTIAL_WITH_CHARGE_COS,
     TRAINING_POTENTIAL_WITH_WALLS,
-    GENERIC
+    GENERIC,
+    POISSON_ELECTRODE
 };
 
 struct LinearPotentialSegment {
@@ -301,6 +302,45 @@ struct ExternalPotentialParams {
                 return VERY_LARGE_NUMBER;
             }
             return 0.0;
+        }
+
+        if (kind == ExternalPotentialKind::SLIT_LJ93) {
+            if (x_coord <= low || x_coord >= high) {
+                return VERY_LARGE_NUMBER;
+            }
+            double r_low = x_coord - low;
+            double r_high = high - x_coord;
+            double e_low = 0.0;
+            double e_high = 0.0;
+            if (r_low < cutoff && r_low > 0.0) {
+                double r3 = std::pow(sigma / r_low, 3.0);
+                e_low = epsilon * ((2.0 / 15.0) * r3 * r3 * r3 - r3) - shift;
+            }
+            if (r_high < cutoff && r_high > 0.0) {
+                double r3 = std::pow(sigma / r_high, 3.0);
+                e_high = epsilon * ((2.0 / 15.0) * r3 * r3 * r3 - r3) - shift;
+            }
+            return e_low + e_high;
+        }
+
+        if (kind == ExternalPotentialKind::POISSON_ELECTRODE) {
+            if (x_coord <= low || x_coord >= high) {
+                return VERY_LARGE_NUMBER;
+            }
+            double r_low = x_coord - low;
+            double r_high = high - x_coord;
+            double e_wall = 0.0;
+            if (r_low < cutoff && r_low > 0.0) {
+                double r3 = std::pow(sigma / r_low, 3.0);
+                e_wall += epsilon * ((2.0 / 15.0) * r3 * r3 * r3 - r3) - shift;
+            }
+            if (r_high < cutoff && r_high > 0.0) {
+                double r3 = std::pow(sigma / r_high, 3.0);
+                e_wall += epsilon * ((2.0 / 15.0) * r3 * r3 * r3 - r3) - shift;
+            }
+            double ratio = 2.0 * PI * x_coord / L;
+            double phi_ext = A1 * std::cos(ratio * 1.0 + phi1) + A2 * std::cos(ratio * 2.0 + phi2);
+            return q * phi_ext + e_wall;
         }
 
         if (kind == ExternalPotentialKind::TRAINING_POTENTIAL_WITH_CHARGE_COS) {

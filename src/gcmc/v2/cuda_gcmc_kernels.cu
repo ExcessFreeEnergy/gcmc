@@ -134,6 +134,43 @@ __device__ float calc_ext_energy_dev(const CUDAExternalParams& ep, const float3&
         }
         return 0.0f;
     }
+    if (ep.kind == 4) { // SLIT_LJ93
+        if (x <= ep.low || x >= ep.high) {
+            return CUDART_INF_F;
+        }
+        float r_low = x - ep.low;
+        float r_high = ep.high - x;
+        float e_low = 0.0f;
+        float e_high = 0.0f;
+        if (r_low < ep.cutoff && r_low > 0.0f) {
+            float r3 = powf(ep.sigma / r_low, 3.0f);
+            e_low = ep.epsilon * ((2.0f / 15.0f) * r3 * r3 * r3 - r3) - ep.shift;
+        }
+        if (r_high < ep.cutoff && r_high > 0.0f) {
+            float r3 = powf(ep.sigma / r_high, 3.0f);
+            e_high = ep.epsilon * ((2.0f / 15.0f) * r3 * r3 * r3 - r3) - ep.shift;
+        }
+        return e_low + e_high;
+    }
+    if (ep.kind == 8) { // POISSON_ELECTRODE
+        if (x <= ep.low || x >= ep.high) {
+            return CUDART_INF_F;
+        }
+        float r_low = x - ep.low;
+        float r_high = ep.high - x;
+        float e_wall = 0.0f;
+        if (r_low < ep.cutoff && r_low > 0.0f) {
+            float r3 = powf(ep.sigma / r_low, 3.0f);
+            e_wall += ep.epsilon * ((2.0f / 15.0f) * r3 * r3 * r3 - r3) - ep.shift;
+        }
+        if (r_high < ep.cutoff && r_high > 0.0f) {
+            float r3 = powf(ep.sigma / r_high, 3.0f);
+            e_wall += ep.epsilon * ((2.0f / 15.0f) * r3 * r3 * r3 - r3) - ep.shift;
+        }
+        float arg = 2.0f * CUDART_PI_F * x / ep.L;
+        float phi_ext = ep.A1 * cosf(arg * 1.0f + ep.phi1) + ep.A2 * cosf(arg * 2.0f + ep.phi2);
+        return ep.q * phi_ext + e_wall;
+    }
     if (ep.kind == 5) {
         if (x < ep.low || x > ep.high) {
             return CUDART_INF_F;

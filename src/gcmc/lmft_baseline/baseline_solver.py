@@ -25,6 +25,28 @@ def langevin(u):
     return res
 
 
+def langevin_dielectric_c1(u):
+    """
+    Exact one-body direct correlation functional for non-linear dipolar polarization:
+        c_diel^{(1)}(z) = ln(sinh(u) / u), where u = beta * mu0 * |E_R(z)|.
+    Asymptotically matches 1/2 * beta * (mu0^2 / 3*kB*T) * E^2 for small fields,
+    and saturates to u - ln(2u) for large fields without empirical forcing.
+    """
+    u = np.asarray(u, dtype=np.float64)
+    abs_u = np.abs(u)
+    res = np.zeros_like(abs_u)
+
+    small = abs_u < 1e-3
+    large = abs_u > 50.0
+    mid = ~small & ~large
+
+    u2 = abs_u[small] ** 2
+    res[small] = u2 / 6.0 - (u2**2) / 180.0 + (u2**3) / 2835.0
+    res[large] = abs_u[large] - np.log(2.0 * abs_u[large])
+    res[mid] = np.log(np.sinh(abs_u[mid]) / abs_u[mid])
+    return res
+
+
 def compute_restructuring_potential_1d(z, n_z, L_z, kappa, phi_ext=None):
     """
     Computes the 1D planar restructuring electrostatic potential phi_R(z):
@@ -231,10 +253,10 @@ class CdftPicardSolver:
             grad_E = np.gradient(phi_R, self.dz)
             e_field = -grad_E
 
-            # 3. First-principles direct correlation c^{(1)}: FMT hard-sphere + dielectrophoretic polarization
+            # 3. First-principles direct correlation c^{(1)}: FMT hard-sphere + exact Langevin dipolar polarization
             c1_fmt = self.compute_fmt_c1(self.rho)
-            alpha_pol = 0.008
-            c1_diel = 0.5 * self.beta * alpha_pol * (e_field**2)
+            u_mag = self.beta * self.dipole_mu * np.abs(e_field)
+            c1_diel = langevin_dielectric_c1(u_mag)
 
             # 4. Exact Euler-Lagrange target density
             exponent = -self.beta * self.v_ext + (c1_fmt - self.c1_bulk) + c1_diel
