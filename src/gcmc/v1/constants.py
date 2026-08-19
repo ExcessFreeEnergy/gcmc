@@ -21,4 +21,4 @@ import scipy.constants as const
 ev_to_kjmol = const.electron_volt * const.Avogadro / 1000
 kB_kj_per_mol_k = const.Boltzmann * const.Avogadro / 1000
 kB_eV_per_k = const.Boltzmann / const.electron_volt
-very_large_number = 1.0e30
+very_large_number = float("inf")

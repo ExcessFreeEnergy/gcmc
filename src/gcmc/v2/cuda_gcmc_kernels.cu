@@ -98,12 +98,12 @@ __device__ float calc_pair_energy_dev(const CUDAPairParams& p, float r) {
         }
         case 3:
             if (r < p.sigma_lj) {
-                return 1.0e30f;
+                return CUDART_INF_F;
             }
             return 0.0f;
         case 4:
             if (r < p.diameter) {
-                return 1.0e30f;
+                return CUDART_INF_F;
             }
             return p.prefactor * p.q1 * p.q2 * erfcf(r / p.kappa_inv) * inv_r;
         case 5: {
@@ -124,19 +124,19 @@ __device__ float calc_ext_energy_dev(const CUDAExternalParams& ep, const float3&
 
     if (ep.kind == 1) {
         if (x < ep.width || x > ep.L - ep.width) {
-            return 1.0e30f;
+            return CUDART_INF_F;
         }
         return 0.0f;
     }
     if (ep.kind == 2) {
         if (x < ep.low || x > ep.high) {
-            return 1.0e30f;
+            return CUDART_INF_F;
         }
         return 0.0f;
     }
     if (ep.kind == 5) {
         if (x < ep.low || x > ep.high) {
-            return 1.0e30f;
+            return CUDART_INF_F;
         }
         float arg = 2.0f * CUDART_PI_F * x / ep.L;
         float sines = ep.A1 * sinf(arg * 1.0f + ep.phi1) +

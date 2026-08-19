@@ -10,7 +10,7 @@
 
 namespace gcmc_v2 {
 
-constexpr double VERY_LARGE_NUMBER = 1.0e30;
+constexpr double VERY_LARGE_NUMBER = std::numeric_limits<double>::infinity();
 constexpr double PI = 3.14159265358979323846;
 constexpr double ELEMENTARY_CHARGE = 1.602176634e-19;
 constexpr double EPSILON_0 = 8.8541878128e-12;

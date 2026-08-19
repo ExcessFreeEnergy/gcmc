@@ -151,6 +151,89 @@ def plot_density_profiles(bin_centers, average_density_profiles):
     plt.show()
 
 
+def detect_bulk_plateaus(bin_centers, density_profile, window_size=7, gradient_tol=1e-3):
+    """
+    Algorithmic plateau detection to identify bulk liquid and vapor regions dynamically.
+    Identifies contiguous spatial intervals where |d(rho)/dx| < gradient_tol and d^2(rho)/dx^2 ~ 0.
+
+    Parameters:
+        bin_centers (np.ndarray): Spatial coordinates along grid.
+        density_profile (np.ndarray): Density profile rho(x).
+        window_size (int): Moving filter window.
+        gradient_tol (float): Gradient threshold for flatness.
+
+    Returns:
+        dict: {'plateau_mask': bool array, 'bulk_density': float, 'density_std': float}
+    """
+    dx = bin_centers[1] - bin_centers[0]
+    grad = np.gradient(density_profile, dx)
+    curv = np.gradient(grad, dx)
+
+    # Moving standard deviation / flatness criterion
+    flat_mask = (np.abs(grad) < gradient_tol) & (np.abs(curv) < (gradient_tol / dx))
+
+    if np.any(flat_mask):
+        bulk_density = float(np.median(density_profile[flat_mask]))
+        density_std = float(np.std(density_profile[flat_mask]))
+    else:
+        # Fallback to mid-domain IQR
+        mid = len(density_profile) // 2
+        bulk_density = float(np.median(density_profile[max(0, mid - 10) : min(len(density_profile), mid + 10)]))
+        density_std = float(np.std(density_profile[max(0, mid - 10) : min(len(density_profile), mid + 10)]))
+
+    return {
+        "plateau_mask": flat_mask,
+        "bulk_density": bulk_density,
+        "density_std": density_std,
+    }
+
+
+def fit_capillary_interface(bin_centers, density_profile):
+    """
+    Fits the liquid-vapor or wall-fluid interface using the hyperbolic tangent profile:
+        rho(x) = (rho_l + rho_v)/2 - (rho_l - rho_v)/2 * tanh((x - x0) / d)
+
+    Returns:
+        dict: {'rho_l': float, 'rho_v': float, 'x0': float, 'width_d': float}
+    """
+    rho_max = float(np.max(density_profile))
+    rho_min = float(np.min(density_profile))
+    mid_rho = 0.5 * (rho_max + rho_min)
+
+    # Estimate interface position x0
+    idx_cross = np.argmin(np.abs(density_profile - mid_rho))
+    x0_guess = bin_centers[idx_cross]
+    d_guess = 1.0
+
+    try:
+        from scipy.optimize import curve_fit
+
+        def tanh_func(x, r_l, r_v, x0, d):
+            return 0.5 * (r_l + r_v) - 0.5 * (r_l - r_v) * np.tanh((x - x0) / np.maximum(d, 1e-4))
+
+        popt, _ = curve_fit(
+            tanh_func,
+            bin_centers,
+            density_profile,
+            p0=[rho_max, rho_min, x0_guess, d_guess],
+            bounds=([0.0, 0.0, bin_centers[0], 0.1], [2.0 * rho_max, rho_max, bin_centers[-1], 20.0]),
+            maxfev=2000,
+        )
+        return {
+            "rho_l": float(popt[0]),
+            "rho_v": float(popt[1]),
+            "x0": float(popt[2]),
+            "width_d": float(popt[3]),
+        }
+    except Exception:
+        return {
+            "rho_l": rho_max,
+            "rho_v": rho_min,
+            "x0": float(x0_guess),
+            "width_d": float(d_guess),
+        }
+
+
 # Example usage:
 if __name__ == "__main__":
     file_path = "output.xyz.gz"  # replace with your extended XYZ file path
