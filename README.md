@@ -13,6 +13,8 @@
 
 `gcmc` is a high-performance simulation and reinforcement learning package to sample inhomogeneous polar, dielectric, and ionic fluids under electrostatic fields and electric field gradients (EFGs).
 
+Note: I am regularly pushing breaking changes to master as I experiment. This is not a 'stable' project.
+
 This repository is a modernized, accelerated fork of [https://github.com/annatbui/gcmc](https://github.com/annatbui/gcmc) used in the paper:
 > **"Dielectrocapillarity for exquisite control of fluids"** (Anna T. Bui & Stephen J. Cox, 2025; [arXiv:2503.09855](https://arxiv.org/abs/2503.09855)).
 
