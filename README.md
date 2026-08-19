@@ -25,13 +25,13 @@ This repository is a modernized, accelerated fork of [https://github.com/annatbu
    - **`v1` Engine (Reference)**: Pure Python/NumPy implementation that maintains 100% 1:1 mathematical backwards compatibility ($< 10^{-13}$ relative error).
    - **Long-Range Ewald Electrostatics**: Real-space and reciprocal-space Ewald summation with dynamic structure factor updates enabled via `--enable-long-range`.
 2. **Massive GPU Acceleration (38,000x Speedup)**:
-   - Up to **38,598x faster** than the Python baseline on modern NVIDIA GPUs (RTX 4090) in short-range mode (>112 Million steps/s).
-   - Generates the entire paper's training dataset (2,035 conditions $\times$ 1,000,000 MC steps) in **under 1 minute**, down from $\sim 10^5$ CPU hours.
+   - Up to **38,598x faster (+3,859,673%)** than the Python baseline on modern NVIDIA GPUs (RTX 4090) in short-range mode (>112 Million steps/s).
+   - Generates the entire paper dataset (2,035 conditions $\times$ 1,000,000 MC steps) in **18.06 seconds**, down from $\sim 10^5$ CPU hours.
 3. **Embedded Zero-Dependency LMFT Baseline Solver**:
    - Pure Python & zero-copy C module (`lmft_baseline`) that computes exact 1D Fourier restructuring potentials $\phi_R(z)$, electric fields $E_R(z)$, Stillinger-Lovett bulk thermodynamic shifts, Fundamental Measure Theory (FMT) hard-sphere correlations, and Picard cDFT solutions.
 4. **PufferLib Reinforcement Learning Environment & Interactive UI**:
-   - Native C zero-copy ocean environment (`CdftFluidEnv` / `BatchedCdftVecEnv`) with embedded LMFT restructuring convolution and Langevin dipole polarization that delivers **>48,000 SPS** for active dielectrocapillary control.
-   - Vectorized PPO loop (`train_pufferl.py`) that trains 2,000,000 continuous timesteps on GPU in **41 seconds**.
+   - Native C zero-copy ocean environment (`CdftFluidEnv` / `BatchedCdftVecEnv`) with embedded LMFT restructuring convolution and Langevin dipole polarization that delivers **48,679 SPS** for active dielectrocapillary control.
+   - Vectorized PPO loop (`train_pufferl.py`) that trains 2,000,000 continuous timesteps on GPU in **41.06 seconds**.
    - Immediate-mode Raylib graphical interface (`cdft-ui`) for live parameter control and active neural policy evaluation.
 5. **Package Management with `uv`**:
    - Fast, reproducible dependency management and execution via `uv`.
@@ -42,14 +42,14 @@ This repository is a modernized, accelerated fork of [https://github.com/annatbu
 
 Performance measurements on a local workstation with an NVIDIA GeForce RTX 4090 GPU (24 GB VRAM, 16,384 CUDA cores):
 
-| Model / System | Mode | `v1` Baseline (Python) | `v2` CPU (C++) | `v2` CUDA (RTX 4090) | Speedup (vs CPU) | Speedup (vs `v1`) | Full Paper Dataset (2,035 Runs $\times$ 1M Steps) |
+| Model / System | Mode | `v1` Baseline (Python) | `v2` CPU (C++) | `v2` CUDA (RTX 4090) | Speedup vs CPU (% gain) | Speedup vs `v1` (% gain) | Full Paper Dataset (2,035 Runs $\times$ 1M Steps) |
 |---|---|---|---|---|---|---|---|
-| **Dipole Fluid (`ABC`)** | **Short-Range (SR)** | 2,919.3 steps/s | 48,147.7 steps/s | **112,678,349 steps/s** | **2,340x** | **38,598x** | **0.30 minutes (18 s)** |
-| **Dipole Fluid (`ABC`)** | **Long-Range Ewald (LR)** | N/A | 709.4 steps/s | **38,552.5 steps/s** | **54.3x** | N/A | **14.6 minutes** |
-| **RPM Electrolyte** | **Short-Range (SR)** | 5,768.4 steps/s | 180,385.1 steps/s | **27,640,027.5 steps/s** | **153.2x** | **18,436x** | **1.22 minutes** |
-| **RPM Electrolyte** | **Long-Range Ewald (LR)** | N/A | 62,060.6 steps/s | **262,800.9 steps/s** | **4.2x** | N/A | **2.15 hours** |
-| **SPC/E Water (`H2O`)** | **Short-Range (SR)** | 3,337.4 steps/s | 726,251.2 steps/s | **40,578,059 steps/s** | **55.9x** | **12,158x** | **0.84 minutes (50 s)** |
-| **PufferLib cDFT Env** | **Embedded LMFT** | N/A | N/A | **48,679 steps/s** | **Zero-Copy C** | N/A | **Vectorized RL Rollouts** |
+| **Dipole Fluid (`ABC`)** | **Short-Range (SR)** | 2,919.3 steps/s | 48,147.7 steps/s | **112,678,349 steps/s** | **2,340.2x (+233,924%)** | **38,597.7x (+3,859,673%)** | **18.06 s (0.30 min)** |
+| **Dipole Fluid (`ABC`)** | **Long-Range Ewald (LR)** | N/A | 709.4 steps/s | **38,552.5 steps/s** | **54.3x (+5,334%)** | N/A | **14.66 hours** |
+| **RPM Electrolyte** | **Short-Range (SR)** | 5,768.4 steps/s | 180,385.1 steps/s | **27,640,027.5 steps/s** | **153.2x (+15,223%)** | **4,791.6x (+479,062%)** | **73.6 s (1.23 min)** |
+| **RPM Electrolyte** | **Long-Range Ewald (LR)** | N/A | 62,060.6 steps/s | **262,800.9 steps/s** | **4.23x (+323%)** | N/A | **2.15 hours** |
+| **SPC/E Water (`H2O`)** | **Short-Range (SR)** | 3,337.4 steps/s | 726,251.2 steps/s | **40,578,059 steps/s** | **55.9x (+5,487%)** | **12,158.6x (+1,215,759%)** | **50.15 s (0.84 min)** |
+| **PufferLib cDFT Env** | **Embedded LMFT** | N/A | N/A | **48,679 steps/s** | **Zero-Copy C** | N/A | **2M steps in 41.06 s** |
 
 ---
 
@@ -63,7 +63,7 @@ Direct validation against the published data from the study ([OnlineData.tgz](ht
 | **Total GT Potential Energy** | $-1.906018 \times 10^{-17}\,\text{J}$ | $-1.90601826597758 \times 10^{-17}\,\text{J}$ | $-1.90601826755402 \times 10^{-17}\,\text{J}$ | **$8.27 \times 10^{-10}$ (Exact Match)** |
 | **Mean Potential Energy / Mol** | $-10.716\,\text{kcal/mol}$ | $-10.7163\,\text{kcal/mol}$ | $-10.7163\,\text{kcal/mol}$ | **Identical** |
 | **Restructuring Field $\langle \mathcal{E}_{\rm R} \rangle$** | $3.2088 \times 10^{-11}\,\text{V/Å}$ | N/A | Symmetric profile matching LMFT | **Exact Force Balance** |
-| **Throughput** | $\sim 3,400\,\text{steps/s}$ | $3,337.4\,\text{steps/s}$ | **40,578,059 steps/s (GPU)** | **12,158x Speedup** |
+| **Throughput** | $\sim 3,400\,\text{steps/s}$ | $3,337.4\,\text{steps/s}$ | **40,578,059 steps/s (GPU)** | **12,159x Speedup (+1,215,759%)** |
 
 ---
 
@@ -248,7 +248,7 @@ While the paper explores static equilibrium isotherms under fixed electric field
 #### Training Command:
 
 ```bash
-# Train on 128 vectorized environments for 2,000,000 steps (~41 seconds on NVIDIA RTX 4090)
+# Train on 128 vectorized environments for 2,000,000 steps (~41.06 seconds on NVIDIA RTX 4090)
 uv run python -m gcmc.envs.train_pufferl --num_envs 128 --total_timesteps 2000000 --save_path cdft_policy.pt
 ```
 
@@ -277,7 +277,7 @@ Run the automated test suite:
 uv run pytest tests/ -v
 ```
 
-All 39 automated tests execute in **~12 seconds** to validate:
+All 39 automated tests execute in **~12.53 seconds** to validate:
 - Exact 1:1 mathematical energy equivalence between `v1` and `v2`.
 - Real-space and reciprocal-space Long-Range Ewald electrostatics on CPU & GPU.
 - Numerical invariance under 3D quaternion molecular rotations.
